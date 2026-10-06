@@ -1,0 +1,103 @@
+{
+  "name": "@immiscible/sdk",
+  "version": "0.1.0",
+  "description": "Govern what AI agents spend, share and do: authorize tool calls, wait for a person, settle, and verify signed receipts. Gateway helpers for OpenAI, Anthropic and the Vercel AI SDK. Zero runtime dependencies.",
+  "license": "MIT",
+  "author": "Eóin Forker",
+  "homepage": "https://immiscible.fly.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/efr7-7/immiscible-sdks.git",
+    "directory": "packages/immiscible-js"
+  },
+  "bugs": {
+    "url": "https://github.com/efr7-7/immiscible-sdks/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18.17"
+  },
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/esm/index.d.ts",
+  "exports": {
+    ".": {
+      "import": { "types": "./dist/esm/index.d.ts", "default": "./dist/esm/index.js" },
+      "require": { "types": "./dist/cjs/index.d.ts", "default": "./dist/cjs/index.js" }
+    },
+    "./integrations": {
+      "import": { "types": "./dist/esm/integrations/index.d.ts", "default": "./dist/esm/integrations/index.js" },
+      "require": { "types": "./dist/cjs/integrations/index.d.ts", "default": "./dist/cjs/integrations/index.js" }
+    },
+    "./openai-agents": {
+      "import": { "types": "./dist/esm/integrations/openai-agents.d.ts", "default": "./dist/esm/integrations/openai-agents.js" },
+      "require": { "types": "./dist/cjs/integrations/openai-agents.d.ts", "default": "./dist/cjs/integrations/openai-agents.js" }
+    },
+    "./langchain": {
+      "import": { "types": "./dist/esm/integrations/langchain.d.ts", "default": "./dist/esm/integrations/langchain.js" },
+      "require": { "types": "./dist/cjs/integrations/langchain.d.ts", "default": "./dist/cjs/integrations/langchain.js" }
+    },
+    "./ai": {
+      "import": { "types": "./dist/esm/integrations/vercel-ai.d.ts", "default": "./dist/esm/integrations/vercel-ai.js" },
+      "require": { "types": "./dist/cjs/integrations/vercel-ai.d.ts", "default": "./dist/cjs/integrations/vercel-ai.js" }
+    },
+    "./verify": {
+      "import": { "types": "./dist/esm/verify.d.ts", "default": "./dist/esm/verify.js" },
+      "require": { "types": "./dist/cjs/verify.d.ts", "default": "./dist/cjs/verify.js" }
+    },
+    "./testing": {
+      "node": {
+        "import": { "types": "./dist/esm/testing.d.ts", "default": "./dist/esm/testing.js" },
+        "require": { "types": "./dist/cjs/testing.d.ts", "default": "./dist/cjs/testing.js" }
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "immiscible-fake": "./bin/immiscible-fake.mjs"
+  },
+  "files": [
+    "dist",
+    "src",
+    "bin",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test \"test/*.test.mjs\" \"test/*.test.cjs\"",
+    "test:unit": "node --test test/client.test.mjs test/trace.test.mjs test/verify.test.mjs test/gateway.test.mjs test/integrations.test.mjs test/proxy.test.mjs test/crypto.test.mjs test/style.test.mjs test/cjs.test.cjs",
+    "test:integration": "node --test test/integration.test.mjs",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.0"
+  },
+  "keywords": [
+    "ai agents",
+    "agent governance",
+    "spend control",
+    "finops",
+    "tokenops",
+    "mcp",
+    "claude code",
+    "ai",
+    "agents",
+    "guardrails",
+    "authorization",
+    "approvals",
+    "receipts",
+    "openai",
+    "anthropic",
+    "openai-agents",
+    "langchain",
+    "langgraph",
+    "vercel-ai",
+    "claude"
+  ]
+}

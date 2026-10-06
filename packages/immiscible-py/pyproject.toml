@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "immiscible"
+version = "0.1.0"
+description = "Govern what AI agents spend, share and do: authorize tool calls, wait for a person, settle, and verify signed receipts. Standard library only."
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Eóin Forker" }]
+dependencies = []
+keywords = ["ai agents", "agent governance", "spend control", "finops", "tokenops", "mcp", "claude code", "ai", "agents", "guardrails", "authorization", "approvals", "receipts", "openai-agents", "langchain", "langgraph"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Operating System :: OS Independent",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Security",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Typing :: Typed",
+]
+# The licence is the SPDX expression above (PEP 639); a licence classifier alongside it is an error in setuptools 77+.
+
+[project.urls]
+Homepage = "https://immiscible.fly.dev"
+Documentation = "https://immiscible.fly.dev/docs/sdks"
+Source = "https://github.com/efr7-7/immiscible-sdks/tree/main/packages/immiscible-py"
+Issues = "https://github.com/efr7-7/immiscible-sdks/issues"
+
+[project.optional-dependencies]
+# Nothing here is needed by the SDK itself; these are the frameworks the integrations are tested against.
+openai-agents = ["openai-agents>=0.2"]
+langchain = ["langchain-core>=0.3", "langgraph>=0.2"]
+
+[tool.setuptools]
+packages = ["immiscible", "immiscible.integrations"]
+
+[tool.setuptools.package-data]
+immiscible = ["py.typed"]

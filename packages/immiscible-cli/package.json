@@ -1,0 +1,55 @@
+{
+  "name": "immiscible",
+  "version": "0.1.0",
+  "description": "The Immiscible developer CLI: sign in, govern an agent in one command, check the setup and see what waits for approval. Works for people and for AI coding agents running non-interactively. Zero dependencies.",
+  "license": "MIT",
+  "author": "Eóin Forker",
+  "homepage": "https://immiscible.fly.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/efr7-7/immiscible-sdks.git",
+    "directory": "packages/immiscible-cli"
+  },
+  "bugs": {
+    "url": "https://github.com/efr7-7/immiscible-sdks/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "bin": {
+    "immiscible": "./bin/immiscible.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "hook",
+    "README.md"
+  ],
+  "scripts": {
+    "sync": "node scripts/sync-hook.mjs",
+    "prepack": "node scripts/sync-hook.mjs",
+    "test": "node --disable-warning=ExperimentalWarning --test \"test/*.test.mjs\""
+  },
+  "keywords": [
+    "ai agents",
+    "agent governance",
+    "spend control",
+    "finops",
+    "tokenops",
+    "mcp",
+    "claude code",
+    "claude-code",
+    "cli",
+    "ai",
+    "agents",
+    "agentops",
+    "governance",
+    "guardrails",
+    "approvals",
+    "immiscible"
+  ]
+}

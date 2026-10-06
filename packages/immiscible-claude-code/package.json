@@ -1,0 +1,55 @@
+{
+  "name": "@immiscible/claude-code-hook",
+  "version": "0.1.0",
+  "description": "A Claude Code PreToolUse hook that asks Immiscible before every matching tool call: allow, deny, or ask a person. Fails closed. One file, no dependencies.",
+  "license": "MIT",
+  "author": "Eóin Forker",
+  "homepage": "https://immiscible.fly.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/efr7-7/immiscible-sdks.git",
+    "directory": "packages/immiscible-claude-code"
+  },
+  "bugs": {
+    "url": "https://github.com/efr7-7/immiscible-sdks/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=18.17"
+  },
+  "bin": {
+    "immiscible-claude-code-hook": "./bin/immiscible-claude-code-hook.mjs"
+  },
+  "files": [
+    "bin",
+    "hook",
+    "examples",
+    "README.md"
+  ],
+  "scripts": {
+    "sync": "node scripts/sync-hook.mjs",
+    "prepack": "node scripts/sync-hook.mjs",
+    "test": "node --test \"test/*.test.mjs\""
+  },
+  "keywords": [
+    "ai agents",
+    "agent governance",
+    "spend control",
+    "finops",
+    "tokenops",
+    "mcp",
+    "claude code",
+    "claude-code",
+    "claude",
+    "anthropic",
+    "hooks",
+    "pretooluse",
+    "agents",
+    "guardrails",
+    "approvals",
+    "immiscible"
+  ]
+}

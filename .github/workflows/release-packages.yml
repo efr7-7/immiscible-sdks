@@ -1,0 +1,216 @@
+name: release-packages
+
+# Publishes one package per tag, with no stored tokens: npm and PyPI trust this
+# workflow file through GitHub's OIDC token (trusted publishing).
+#
+#   sdk-v0.1.0    packages/immiscible-js            npm   @immiscible/sdk
+#   hook-v0.1.0   packages/immiscible-claude-code   npm   @immiscible/claude-code-hook
+#   cli-v0.1.0    packages/immiscible-cli           npm   the name in its package.json
+#   py-v0.1.0     packages/immiscible-py            PyPI  immiscible
+#
+# Safe by default: on a pull request it builds, tests and packs every package
+# and publishes nothing. A tag publishes only after the "release" environment
+# lets it through. The tag's version must equal the package's version.
+#
+# Setup, click by click: docs/internal/publishing-setup.md. The file name
+# (release-packages.yml) and the environment name (release) are part of the
+# trust on npm and PyPI: renaming either breaks publishing until both
+# registries are updated.
+
+on:
+  push:
+    tags: ['sdk-v*', 'hook-v*', 'cli-v*', 'py-v*']
+  pull_request:
+    paths:
+      - 'packages/**'
+      - 'scripts/claude-code-hook.mjs'
+      - '.github/workflows/release-packages.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-packages-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      npm: ${{ steps.plan.outputs.npm }}
+      py: ${{ steps.plan.outputs.py }}
+      publish: ${{ steps.plan.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          node --input-type=module <<'EOF'
+          import { appendFileSync, existsSync, readFileSync } from 'node:fs';
+          const DIRS = { sdk: 'packages/immiscible-js', hook: 'packages/immiscible-claude-code', cli: 'packages/immiscible-cli', py: 'packages/immiscible-py' };
+          const manifest = (k) => `${DIRS[k]}/${k === 'py' ? 'pyproject.toml' : 'package.json'}`;
+          const fail = (msg) => { console.log(`::error::${msg}`); process.exit(1); };
+          const out = (k, v) => appendFileSync(process.env.GITHUB_OUTPUT, `${k}=${typeof v === 'string' ? v : JSON.stringify(v)}\n`);
+
+          function describe(prefix) {
+            const dir = DIRS[prefix];
+            if (prefix === 'py') {
+              const toml = readFileSync(`${dir}/pyproject.toml`, 'utf8');
+              return { prefix, dir, name: toml.match(/^name = "(.+)"$/m)[1], version: toml.match(/^version = "(.+)"$/m)[1] };
+            }
+            const pkg = JSON.parse(readFileSync(`${dir}/package.json`, 'utf8'));
+            if (pkg.private) fail(`${dir}/package.json is marked private`);
+            const repo = String(pkg.repository?.url ?? '').replace(/^git\+/, '').replace(/\.git$/, '');
+            return { prefix, dir, name: pkg.name, version: pkg.version, repo };
+          }
+
+          let chosen;
+          let publish = false;
+          if (process.env.EVENT === 'push' && process.env.REF_TYPE === 'tag') {
+            const m = process.env.REF_NAME.match(/^(sdk|hook|cli|py)-v(\d+\.\d+\.\d+(?:[-+.][0-9A-Za-z.+-]+)?)$/);
+            if (!m) fail(`tag ${process.env.REF_NAME} is not one of sdk-vX.Y.Z, hook-vX.Y.Z, cli-vX.Y.Z or py-vX.Y.Z`);
+            if (!existsSync(manifest(m[1]))) fail(`${manifest(m[1])} does not exist`);
+            const p = describe(m[1]);
+            if (p.version !== m[2]) fail(`tag says ${m[2]} but ${p.dir} says ${p.version}: bump the package, commit, and tag that commit`);
+            const here = `https://github.com/${process.env.REPO}`;
+            if (p.repo !== undefined && p.repo !== here) fail(`${p.dir}/package.json repository.url is ${p.repo}, but this is ${here}; npm trusted publishing and provenance need them to match exactly`);
+            chosen = [p];
+            publish = true;
+          } else {
+            chosen = Object.keys(DIRS).filter((k) => existsSync(manifest(k))).map(describe);
+          }
+          console.log(chosen.map((p) => `${p.name}@${p.version} (${p.dir})`).join('\n'), publish ? '\nwill publish' : '\ndry run only');
+          out('npm', chosen.filter((p) => p.prefix !== 'py'));
+          out('py', chosen.filter((p) => p.prefix === 'py'));
+          out('publish', String(publish));
+          EOF
+
+  # Build, test and pack. No id-token here: nothing in this job can publish.
+  npm:
+    needs: plan
+    if: needs.plan.outputs.npm != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pkg: ${{ fromJSON(needs.plan.outputs.npm) }}
+    defaults:
+      run:
+        working-directory: ${{ matrix.pkg.dir }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Install dev dependencies (build tools only; the packages have no runtime dependencies)
+        run: |
+          if [ -f package-lock.json ]; then npm ci --no-audit --no-fund
+          elif node -e "process.exit(Object.keys(require('./package.json').devDependencies ?? {}).length ? 0 : 1)"; then npm install --no-audit --no-fund
+          fi
+      - run: npm run build --if-present
+      - run: npm test
+      - name: Pack
+        run: |
+          mkdir -p "$RUNNER_TEMP/pack"
+          npm pack --pack-destination "$RUNNER_TEMP/pack"
+          tar -tzf "$RUNNER_TEMP"/pack/*.tgz
+      - name: Dry run publish
+        run: npm publish "$(ls "$RUNNER_TEMP"/pack/*.tgz)" --dry-run --access public
+      - uses: actions/upload-artifact@v7
+        with:
+          name: npm-${{ matrix.pkg.prefix }}
+          path: ${{ runner.temp }}/pack/*.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  python:
+    needs: plan
+    if: needs.plan.outputs.py != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.9', '3.13']
+    defaults:
+      run:
+        working-directory: packages/immiscible-py
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Test (standard library only; the cross-language test uses the JavaScript fake)
+        run: python -m unittest discover -s tests -t .
+      - name: Build sdist and wheel
+        if: matrix.python == '3.13'
+        run: |
+          python -m pip install --upgrade build twine
+          rm -rf build dist *.egg-info
+          python -m build --outdir dist
+          python -m twine check --strict dist/*
+      - uses: actions/upload-artifact@v7
+        if: matrix.python == '3.13'
+        with:
+          name: python-dist
+          path: packages/immiscible-py/dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  # Publish: tags only, behind the "release" environment, with a short-lived OIDC token.
+  publish-npm:
+    needs: [plan, npm]
+    if: needs.plan.outputs.publish == 'true' && needs.plan.outputs.npm != '[]'
+    runs-on: ubuntu-latest
+    environment:
+      name: release
+      url: https://www.npmjs.com/package/${{ fromJSON(needs.plan.outputs.npm)[0].name }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - name: npm 11.5.1 or later (trusted publishing needs it)
+        run: npm install -g npm@^11.5.1 && npm --version
+      - uses: actions/download-artifact@v8
+        with:
+          name: npm-${{ fromJSON(needs.plan.outputs.npm)[0].prefix }}
+          path: pack
+      - name: Publish
+        env:
+          # npm makes provenance only from public repositories; from a private one the flag fails the publish.
+          PROVENANCE: ${{ github.event.repository.private && ' ' || '--provenance' }}
+          VERSION: ${{ fromJSON(needs.plan.outputs.npm)[0].version }}
+        run: |
+          TAG=latest
+          case "$VERSION" in *-*) TAG=next ;; esac
+          npm publish "$(ls pack/*.tgz)" --access public --tag "$TAG" $PROVENANCE
+
+  publish-pypi:
+    needs: [plan, python]
+    if: needs.plan.outputs.publish == 'true' && needs.plan.outputs.py != '[]'
+    runs-on: ubuntu-latest
+    environment:
+      name: release
+      url: https://pypi.org/project/immiscible/
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: python-dist
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # Attestations go to a public transparency log; from a private repository they would publish its name and workflow.
+          attestations: ${{ !github.event.repository.private }}

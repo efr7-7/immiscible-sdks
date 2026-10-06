@@ -1,0 +1,3 @@
+# The desk's own settings
+ANTHROPIC_API_KEY=sk-ant-fixture
+LOG_LEVEL=debug
