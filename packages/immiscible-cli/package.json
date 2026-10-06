@@ -1,7 +1,7 @@
 {
   "name": "immiscible",
-  "version": "0.1.0",
-  "description": "The Immiscible developer CLI: sign in, govern an agent in one command, check the setup and see what waits for approval. Works for people and for AI coding agents running non-interactively. Zero dependencies.",
+  "version": "0.1.1",
+  "description": "Approvals, spend limits and a kill switch for AI agents, set up in one command: npx immiscible init. Installs a fail-closed Claude Code hook, prints MCP setup for Claude Code, Cursor and VS Code, and runs non-interactively for AI coding agents (--json, exit codes). Zero dependencies.",
   "license": "MIT",
   "author": "Eóin Forker",
   "homepage": "https://immiscible.fly.dev",
@@ -27,7 +27,8 @@
     "bin",
     "src",
     "hook",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "sync": "node scripts/sync-hook.mjs",
@@ -50,6 +51,23 @@
     "governance",
     "guardrails",
     "approvals",
-    "immiscible"
+    "immiscible",
+    "human-in-the-loop",
+    "approval",
+    "spend-limits",
+    "budget",
+    "kill-switch",
+    "audit-log",
+    "ai-safety",
+    "agent-security",
+    "llm",
+    "llm-cost",
+    "mcp-server",
+    "model-context-protocol",
+    "pretooluse",
+    "hooks",
+    "cursor",
+    "vscode",
+    "agent-cli"
   ]
 }

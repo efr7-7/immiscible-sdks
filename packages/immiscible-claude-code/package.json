@@ -1,7 +1,7 @@
 {
   "name": "@immiscible/claude-code-hook",
-  "version": "0.1.0",
-  "description": "A Claude Code PreToolUse hook that asks Immiscible before every matching tool call: allow, deny, or ask a person. Fails closed. One file, no dependencies.",
+  "version": "0.1.1",
+  "description": "Block or approve Claude Code tool calls by rule: a PreToolUse hook that asks Immiscible before every Bash command, file edit, web fetch and MCP call. Allow, deny, or ask a person; fails closed. One file, no dependencies.",
   "license": "MIT",
   "author": "Eóin Forker",
   "homepage": "https://immiscible.fly.dev",
@@ -27,7 +27,8 @@
     "bin",
     "hook",
     "examples",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "sync": "node scripts/sync-hook.mjs",
@@ -50,6 +51,15 @@
     "agents",
     "guardrails",
     "approvals",
-    "immiscible"
+    "immiscible",
+    "human-in-the-loop",
+    "approval",
+    "block-commands",
+    "permissions",
+    "kill-switch",
+    "audit-log",
+    "ai-safety",
+    "agent-security",
+    "claude-code-hooks"
   ]
 }

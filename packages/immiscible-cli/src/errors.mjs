@@ -15,6 +15,7 @@ export const EXIT = Object.freeze({
   DENIED: 8, // login: denied in the browser, or the code expired
   TEST: 9, // init: the live test call did not come back governed
   PENDING: 10, // init: done, and the rule waits for another owner to confirm
+  FINDINGS: 11, // check: something high-risk was found
 });
 
 export class CliError extends Error {

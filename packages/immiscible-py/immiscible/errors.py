@@ -6,6 +6,8 @@ from typing import Any, Optional
 
 __all__ = [
     "ImmiscibleError", "ImmiscibleDeniedError", "ImmiscibleApprovalTimeoutError", "ImmiscibleApprovalRequiredError", "is_refusal",
+    "ImmiscibleAuthenticationError", "ImmiscibleInvalidRequestError", "ImmiscibleRateLimitError",
+    "ImmiscibleIdempotencyConflictError", "ImmiscibleConnectionError", "error_from_response",
 ]
 
 
@@ -13,12 +15,56 @@ class ImmiscibleError(Exception):
     """Base class. `status` is the HTTP status when the server answered, `type` a machine code."""
 
     def __init__(self, message: str, *, status: Optional[int] = None, type: str = "immiscible_error", body: Any = None,
-                 traceparent: Optional[str] = None):
+                 traceparent: Optional[str] = None, request_id: Optional[str] = None):
         super().__init__(message)
         self.status = status
         self.type = type
         self.body = body
         self.traceparent = traceparent
+        self.request_id = request_id  # the server's x-request-id: quote it when asking for help
+
+
+class ImmiscibleAuthenticationError(ImmiscibleError):
+    """401: the key is missing, unknown or revoked."""
+
+
+class ImmiscibleInvalidRequestError(ImmiscibleError):
+    """400 or 422: the request was malformed. `errors` names each field that was wrong."""
+
+    def __init__(self, message: str, **kw):
+        super().__init__(message, **kw)
+        err = (self.body or {}).get("error") if isinstance(self.body, dict) else None
+        found = (err or {}).get("errors") if isinstance(err, dict) else None
+        self.errors = list(found) if isinstance(found, list) else []
+
+
+class ImmiscibleRateLimitError(ImmiscibleError):
+    """429: too many requests. `retry_after` is in seconds, when the server said."""
+
+    def __init__(self, message: str, *, retry_after: Optional[float] = None, **kw):
+        super().__init__(message, **kw)
+        self.retry_after = retry_after
+
+
+class ImmiscibleIdempotencyConflictError(ImmiscibleError):
+    """409 idempotency_conflict: the same idempotency key was sent with a different body."""
+
+
+class ImmiscibleConnectionError(ImmiscibleError):
+    """The server could not be reached, or did not answer in time."""
+
+
+def error_from_response(message: str, *, status: int, type: str, retry_after: Optional[float] = None, **kw) -> ImmiscibleError:
+    """The error class for an HTTP failure, chosen by status and the server's error type."""
+    if status == 401:
+        return ImmiscibleAuthenticationError(message, status=status, type=type, **kw)
+    if status == 429:
+        return ImmiscibleRateLimitError(message, status=status, type=type, retry_after=retry_after, **kw)
+    if status == 409 and type == "idempotency_conflict":
+        return ImmiscibleIdempotencyConflictError(message, status=status, type=type, **kw)
+    if status in (400, 422):
+        return ImmiscibleInvalidRequestError(message, status=status, type=type, **kw)
+    return ImmiscibleError(message, status=status, type=type, **kw)
 
 
 def _raw(decision) -> dict:

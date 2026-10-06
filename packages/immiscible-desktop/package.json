@@ -1,0 +1,15 @@
+{
+  "name": "@immiscible/claude-desktop",
+  "version": "0.1.1",
+  "private": true,
+  "description": "Immiscible for Claude Desktop: an MCP Bundle (.mcpb) with a dependency-free local bridge to Immiscible's hosted MCP server.",
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "validate": "npx -y @anthropic-ai/mcpb@2 validate manifest.json",
+    "pack": "npx -y @anthropic-ai/mcpb@2 pack . dist/immiscible.mcpb"
+  },
+  "repository": { "type": "git", "url": "git+https://github.com/efr7-7/immiscible-sdks.git", "directory": "packages/immiscible-desktop" }
+}

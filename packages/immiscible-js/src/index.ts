@@ -15,7 +15,11 @@ export { Gateway } from './gateway.js';
 export type { GatewayCallOptions, OpenAIClientOptions, AnthropicClientOptions, AiSdkProviderSettings } from './gateway.js';
 export { McpProxy, mcpProxyUrl, mcpServerUrl, approvalFromResult, approvalMeta, MCP_PROTOCOL, META_APPROVAL_ID, META_IDEMPOTENCY_KEY } from './proxy.js';
 export type { PendingApproval } from './proxy.js';
-export { ImmiscibleError, ImmiscibleDeniedError, ImmiscibleApprovalTimeoutError, ImmiscibleApprovalRequiredError, isRefusal } from './errors.js';
+export {
+  ImmiscibleError, ImmiscibleDeniedError, ImmiscibleApprovalTimeoutError, ImmiscibleApprovalRequiredError, isRefusal,
+  ImmiscibleAuthenticationError, ImmiscibleInvalidRequestError, ImmiscibleRateLimitError, ImmiscibleIdempotencyConflictError, ImmiscibleConnectionError,
+} from './errors.js';
+export type { FieldError } from './errors.js';
 export { verifyReceipt, verifyOnline, fetchJwks, pinJwks, decodeReceiptUnverified, clearJwksCache, RECEIPT_TYP, JWKS_PATH, REASONS } from './verify.js';
 export type { Jwk, Jwks, ReceiptClaims, Expect, VerifyOptions, VerifyResult, VerifyReason } from './verify.js';
 export { cryptoAction, decideThenSign, x402Fetch, readPaymentRequired, receiptCovers, fromAtomic, X402_ASSETS } from './crypto.js';

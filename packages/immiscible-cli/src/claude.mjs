@@ -6,14 +6,30 @@
  *                                                    serves at /downloads/claude-code-hook.mjs)
  *   .claude/settings.json                            one PreToolUse entry:
  *
- *     { "matcher": "Bash|Write|Edit|MultiEdit|NotebookEdit|WebFetch|mcp__.*",
+ *     { "matcher": "Bash|Write|Edit|MultiEdit|NotebookEdit|WebFetch|mcp__(?!immiscible__(check_action_status|explain_decision|spend_summary|find_waste|unwatched_keys)$).*",
  *       "hooks": [ { "type": "command", "timeout": 60,
  *                    "command": "node --env-file-if-exists=\"$CLAUDE_PROJECT_DIR/.env\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/immiscible-claude-code-hook.mjs\" || exit 2" } ] }
+ *
+ * Immiscible's own read-only MCP tools (mcp__immiscible__check_action_status,
+ * explain_decision, spend_summary, find_waste, unwatched_keys) are left out of the matcher, as the
+ * plugin does: asking Immiscible whether the agent may ask Immiscible is a
+ * loop and noise. Its tools that act (authorize_action, request_payment and
+ * the rest) still go through.
  *
  * The hook reads IMMISCIBLE_URL and IMMISCIBLE_AGENT_KEY from the project's
  * .env (Node's --env-file-if-exists; a variable already in the environment
  * wins). It fails closed, and `|| exit 2` makes a missing file, a missing
  * node or a crash block the call too: Claude Code blocks only on exit 2.
+ *
+ * Beside the hook, a short list of Claude Code deny rules (DENY), so the
+ * most destructive commands and the project's .env are refused by Claude
+ * Code itself, before any hook runs, and even when the hook is removed:
+ *
+ *     "permissions": { "deny": [ "Bash(rm -rf:*)", "Bash(git push --force:*)", "Read(./.env)", ... ] }
+ *
+ * Immiscible's own rules refuse or ask about these too (secrets never leave
+ * the machine; destructive commands always ask a person); the deny rules
+ * are a second lock that does not depend on the network.
  *
  * Merging never removes anything of yours: other hooks, other PreToolUse
  * entries and every other setting stay as they are. An older Immiscible
@@ -25,8 +41,16 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, copyFileSync } from
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const MATCHER = 'Bash|Write|Edit|MultiEdit|NotebookEdit|WebFetch|mcp__.*';
+/** Immiscible's own MCP tools that only read: never sent back to Immiscible. */
+export const OWN_READ_TOOLS = Object.freeze(['check_action_status', 'explain_decision', 'spend_summary', 'find_waste', 'unwatched_keys']);
+export const MATCHER = `Bash|Write|Edit|MultiEdit|NotebookEdit|WebFetch|mcp__(?!immiscible__(${OWN_READ_TOOLS.join('|')})$).*`;
 export const HOOK_FILE = 'immiscible-claude-code-hook.mjs';
+/** Claude Code deny rules init adds: refused by Claude Code itself, before any hook runs. */
+export const DENY = Object.freeze([
+  'Bash(rm -rf:*)', 'Bash(rm -fr:*)', 'Bash(sudo rm:*)',
+  'Bash(git push --force:*)', 'Bash(git push -f:*)', 'Bash(git reset --hard:*)', 'Bash(git clean -f:*)',
+  'Read(./.env)', 'Read(./.env.*)',
+]);
 export const HOOK_TIMEOUT = 60;
 export const BUNDLED_HOOK = fileURLToPath(new URL('../hook/claude-code-hook.mjs', import.meta.url));
 export const HOOK_COMMAND = `node --env-file-if-exists="$CLAUDE_PROJECT_DIR/.env" "$CLAUDE_PROJECT_DIR/.claude/hooks/${HOOK_FILE}" || exit 2`;
@@ -84,6 +108,11 @@ export function planSettings(file) {
   }
   if (!placed) kept.push(want);
   next.hooks.PreToolUse = kept;
+  // The deny rules: added when missing, never removing or reordering yours.
+  next.permissions = next.permissions && typeof next.permissions === 'object' && !Array.isArray(next.permissions) ? next.permissions : {};
+  const deny = Array.isArray(next.permissions.deny) ? next.permissions.deny : [];
+  const missing = DENY.filter((d) => !deny.includes(d));
+  if (missing.length || !Array.isArray(next.permissions.deny)) next.permissions.deny = [...deny, ...missing];
   // Semantically the same file is left byte for byte as it is.
   if (exists && JSON.stringify(next) === JSON.stringify(settings)) return { before, after: before, changed: false, state: 'unchanged', error: null };
   const after = `${JSON.stringify(next, null, indentOf(before))}\n`;
@@ -119,8 +148,9 @@ export function inspectHook(dir) {
   }
   const hookFile = path.join(dir, '.claude', 'hooks', HOOK_FILE);
   const hookExists = existsSync(hookFile);
-  const current = hookExists ? readFileSync(hookFile).equals(readFileSync(BUNDLED_HOOK)) : null;
-  return { entries: found, hookFile, hookExists, current };
+  const hookText = hookExists ? readFileSync(hookFile, 'utf8') : null;
+  const current = hookExists ? Buffer.from(hookText).equals(readFileSync(BUNDLED_HOOK)) : null;
+  return { entries: found, hookFile, hookExists, hookText, current };
 }
 
 // ------------------------------------------------------------------ diff

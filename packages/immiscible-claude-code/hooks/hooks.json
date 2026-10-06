@@ -1,0 +1,17 @@
+{
+  "description": "Ask Immiscible before every Bash command, file edit, web fetch and MCP call. Reads IMMISCIBLE_URL and IMMISCIBLE_AGENT_KEY from the environment or the project's .env (npx immiscible init writes them). Fails closed. Immiscible's own read-only tools (check_action_status, explain_decision, spend_summary, find_waste, unwatched_keys) are not sent to it again.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Write|Edit|MultiEdit|NotebookEdit|WebFetch|mcp__(?!plugin_immiscible_immiscible__(check_action_status|explain_decision|spend_summary|find_waste|unwatched_keys)$).*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node --env-file-if-exists=\"$CLAUDE_PROJECT_DIR/.env\" \"${CLAUDE_PLUGIN_ROOT}/hook/claude-code-hook.mjs\" || exit 2",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
+}

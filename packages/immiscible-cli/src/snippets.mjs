@@ -1,43 +1,112 @@
 /**
- * The code to paste, for the SDK init found. Each uses the Immiscible SDKs
- * in packages/immiscible-js and packages/immiscible-py exactly as their
- * READMEs and examples do; neither is on npm or PyPI yet, so the install
- * line says where they are.
+ * The code to paste, for the SDK init found and the rule the agent has.
+ * Each uses the Immiscible SDKs (@immiscible/sdk on npm, immiscible on
+ * PyPI) exactly as their READMEs and examples do.
+ *
+ * The guard matches the rule: a payment rule allows payments and nothing
+ * else, so a payments agent gets immiscible.pay(); a customer-answering
+ * rule covers email.send and message.send; only a rule that covers tool
+ * calls gets the tool.call guard. Code a rule can never allow is not
+ * printed.
  */
 
-const JS_INSTALL = '// The SDK is not on npm yet: npm install <path to the Immiscible repository>/packages/immiscible-js';
-const PY_INSTALL = '# The SDK is not on PyPI yet: pip install <path to the Immiscible repository>/packages/immiscible-py';
+const JS_INSTALL = '// npm install @immiscible/sdk';
+const PY_INSTALL = '# pip install immiscible';
 const JS_ENV = '// IMMISCIBLE_URL and IMMISCIBLE_AGENT_KEY come from .env: run with node --env-file=.env';
 const PY_ENV = '# IMMISCIBLE_URL and IMMISCIBLE_AGENT_KEY come from the environment: load .env first (python-dotenv, or export them)';
 
-const GUARD_JS = `// Before a tool runs, ask: allow, refuse, or wait for a person. Your function runs only on allow.
-await immiscible.guard(toolAction('send_invoice', args, { domain: 'billing.example.com' }), () => sendInvoice(args));`;
-const GUARD_PY = `# Before a tool runs, ask: allow, refuse, or wait for a person. The block runs only on allow.
-with immiscible.guard(tool_action("send_invoice", args, domain="billing.example.com")):
-    send_invoice(args)`;
+// The tool examples open a ticket: a tool call, which is what a tool rule
+// covers. Paying and emailing have guards of their own below.
+const TOOL_JS = `// Before a tool runs, ask: allow, refuse, or wait for a person. Your function runs only on allow.
+const args = { title: 'Checkout times out', project: 'web' };
+await immiscible.guard(
+  toolAction('create_ticket', args, { summary: \`Open a ticket: \${args.title}\`, domain: 'tickets.example.com' }),
+  () => createTicket(args),
+);`;
+const TOOL_PY = `# Before a tool runs, ask: allow, refuse, or wait for a person. The block runs only on allow.
+args = {"title": "Checkout times out", "project": "web"}
+with immiscible.guard(tool_action("create_ticket", args, summary=f"Open a ticket: {args['title']}", domain="tickets.example.com")):
+    create_ticket(args)`;
+const PAY_JS = `// Before the agent pays, ask: allow, refuse, or wait for a person. Your function runs only on allow.
+// Amounts are in minor units: 125000 is £1,250.00.
+await immiscible.pay(
+  { amount: 125000, currency: 'GBP', merchant: { name: 'Acme Supplies', domain: 'acme.example' }, summary: 'Pay Acme Supplies invoice 0931' },
+  () => payInvoice('0931'),
+);`;
+const PAY_PY = `# Before the agent pays, ask: allow, refuse, or wait for a person. The block runs only on allow.
+# Amounts are in minor units: 125000 is £1,250.00.
+with immiscible.guard(Immiscible.payment_action(125000, "GBP", {"name": "Acme Supplies", "domain": "acme.example"}, summary="Pay Acme Supplies invoice 0931")):
+    pay_invoice("0931")`;
+const EMAIL_JS = `// Before the agent writes to a customer, ask: allow, refuse, or wait for a person.
+await immiscible.guard(
+  { type: 'email.send', summary: 'Reply to the customer about order 1182' },
+  () => sendReply('order-1182'),
+);`;
+const EMAIL_PY = `# Before the agent writes to a customer, ask: allow, refuse, or wait for a person.
+with immiscible.guard({"type": "email.send", "summary": "Reply to the customer about order 1182"}):
+    send_reply("order-1182")`;
+
+/**
+ * What the agent's rules cover, from the rules init made or found
+ * ({ kind, actions }), or null when that is not known (an older server).
+ */
+export function coversFrom(rules) {
+  const list = (rules ?? []).filter(Boolean);
+  if (!list.length) return null;
+  const acts = list.flatMap((r) => (r.kind === 'action' ? r.actions ?? [] : []));
+  const known = list.every((r) => r.kind !== 'action' || Array.isArray(r.actions));
+  return {
+    payment: list.some((r) => r.kind === 'payment'),
+    email: acts.some((a) => a === 'email.send' || a === 'message.send' || a === 'email.*' || a === 'message.*'),
+    // An action rule from an older server, without its actions: assume tool calls, as before.
+    tool: acts.some((a) => a === 'tool.call' || a === 'tool.*' || a === '*') || !known,
+  };
+}
+
+/** The guard for what the rules cover: tool calls first, then payments, then email. */
+function guardFor(lang, covers) {
+  const js = lang !== 'python';
+  if (!covers || covers.tool) return { id: 'tool', text: js ? TOOL_JS : TOOL_PY };
+  if (covers.payment) return { id: 'pay', text: js ? PAY_JS : PAY_PY };
+  if (covers.email) return { id: 'email', text: js ? EMAIL_JS : EMAIL_PY };
+  return { id: 'tool', text: js ? TOOL_JS : TOOL_PY };
+}
+const jsImports = (g, extra = []) => [...extra, ...(g.id === 'tool' ? ['toolAction'] : [])];
+const pyImports = (g) => (g.id === 'tool' ? 'Immiscible, tool_action' : 'Immiscible');
 
 const SNIPPETS = {
-  'node:openai': () => `${JS_INSTALL}
+  'node:openai': (g = guardFor('node')) => `${JS_INSTALL}
 import OpenAI from 'openai';
-import { Immiscible, toolAction } from '@immiscible/sdk';
+import { ${jsImports(g, ['Immiscible']).join(', ')} } from '@immiscible/sdk';
 
 ${JS_ENV}
 const immiscible = new Immiscible().run();
 const openai = new OpenAI(immiscible.gateway.openai()); // model calls through the gateway, metered and traced
 
-${GUARD_JS}`,
+${g.text}`,
 
-  'node:anthropic': () => `${JS_INSTALL}
+  'node:anthropic': (g = guardFor('node')) => `${JS_INSTALL}
 import Anthropic from '@anthropic-ai/sdk';
-import { Immiscible, toolAction } from '@immiscible/sdk';
+import { ${jsImports(g, ['Immiscible']).join(', ')} } from '@immiscible/sdk';
 
 ${JS_ENV}
 const immiscible = new Immiscible().run();
 const anthropic = new Anthropic(immiscible.gateway.anthropic()); // model calls through the gateway, metered and traced
 
-${GUARD_JS}`,
+${g.text}`,
 
-  'node:openai-agents': () => `${JS_INSTALL}
+  'node:openai-agents': (g = guardFor('node')) => (g.id !== 'tool' ? `${JS_INSTALL}
+import { setDefaultOpenAIClient, setOpenAIAPI } from '@openai/agents';
+import OpenAI from 'openai';
+import { Immiscible } from '@immiscible/sdk';
+
+${JS_ENV}
+const immiscible = new Immiscible().run();
+setDefaultOpenAIClient(new OpenAI(immiscible.gateway.openai()));
+setOpenAIAPI('chat_completions'); // the gateway speaks Chat Completions
+
+// Inside the tool that acts:
+${g.text}` : `${JS_INSTALL}
 import { setDefaultOpenAIClient, setOpenAIAPI } from '@openai/agents';
 import OpenAI from 'openai';
 import { Immiscible } from '@immiscible/sdk';
@@ -49,9 +118,18 @@ setDefaultOpenAIClient(new OpenAI(immiscible.gateway.openai()));
 setOpenAIAPI('chat_completions'); // the gateway speaks Chat Completions
 
 // Every tool call asks Immiscible first; a refusal comes back to the model with the reasons.
-const tools = guardOpenAITools([sendInvoice, searchOrders], { client: immiscible });`,
+const tools = guardOpenAITools([createTicket, searchOrders], { client: immiscible });`),
 
-  'node:vercel-ai': () => `${JS_INSTALL}
+  'node:vercel-ai': (g = guardFor('node')) => (g.id !== 'tool' ? `${JS_INSTALL}
+import { createOpenAI } from '@ai-sdk/openai';
+import { Immiscible } from '@immiscible/sdk';
+
+${JS_ENV}
+const immiscible = new Immiscible().run({ client: 'vercel-ai' });
+const provider = createOpenAI(immiscible.gateway.aiSdkOpenAI()); // use provider.chat(...): the gateway speaks Chat Completions
+
+// Inside the tool's execute:
+${g.text}` : `${JS_INSTALL}
 import { generateText, wrapLanguageModel } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { Immiscible } from '@immiscible/sdk';
@@ -63,10 +141,19 @@ const provider = createOpenAI(immiscible.gateway.aiSdkOpenAI());
 const model = wrapLanguageModel({ model: provider.chat('gpt-5-mini'), middleware: immiscibleMiddleware({ client: immiscible }) }); // .chat(): the gateway speaks Chat Completions
 
 // Every tool's execute asks Immiscible first.
-const tools = guardAiTools({ sendInvoice, searchOrders }, { client: immiscible });
-await generateText({ model, tools, prompt });`,
+const tools = guardAiTools({ createTicket, searchOrders }, { client: immiscible });
+await generateText({ model, tools, prompt });`),
 
-  'node:langchain': () => `${JS_INSTALL}
+  'node:langchain': (g = guardFor('node')) => (g.id !== 'tool' ? `${JS_INSTALL}
+import { ChatOpenAI } from '@langchain/openai';
+import { Immiscible } from '@immiscible/sdk';
+
+${JS_ENV}
+const immiscible = new Immiscible().run({ client: 'langchain' });
+const llm = new ChatOpenAI({ model: 'gpt-5-mini', configuration: immiscible.gateway.openai() });
+
+// Inside the tool that acts:
+${g.text}` : `${JS_INSTALL}
 import { ChatOpenAI } from '@langchain/openai';
 import { Immiscible } from '@immiscible/sdk';
 import { guardLangChainTools } from '@immiscible/sdk/langchain';
@@ -76,35 +163,42 @@ const immiscible = new Immiscible().run({ client: 'langchain' });
 const llm = new ChatOpenAI({ model: 'gpt-5-mini', configuration: immiscible.gateway.openai() });
 
 // Guarded tools for ToolNode, bindTools or createReactAgent: each call asks Immiscible first.
-const tools = guardLangChainTools([sendInvoice, searchOrders], { client: immiscible });`,
+const tools = guardLangChainTools([createTicket, searchOrders], { client: immiscible });`),
 
-  'node:generic': () => `${JS_INSTALL}
-import { Immiscible, toolAction } from '@immiscible/sdk';
+  'node:generic': (g = guardFor('node')) => `${JS_INSTALL}
+import { ${jsImports(g, ['Immiscible']).join(', ')} } from '@immiscible/sdk';
 
 ${JS_ENV}
 const immiscible = new Immiscible().run();
 
-${GUARD_JS}`,
+${g.text}`,
 
-  'python:openai': () => `${PY_INSTALL}
-from immiscible import Immiscible, tool_action
+  'python:openai': (g = guardFor('python')) => `${PY_INSTALL}
+from immiscible import ${pyImports(g)}
 
 ${PY_ENV}
 immiscible = Immiscible().run()
 client = immiscible.gateway.openai_client()  # an OpenAI client through the gateway, metered and traced
 
-${GUARD_PY}`,
+${g.text}`,
 
-  'python:anthropic': () => `${PY_INSTALL}
-from immiscible import Immiscible, tool_action
+  'python:anthropic': (g = guardFor('python')) => `${PY_INSTALL}
+from immiscible import ${pyImports(g)}
 
 ${PY_ENV}
 immiscible = Immiscible().run()
 client = immiscible.gateway.anthropic_client()  # an Anthropic client through the gateway, metered and traced
 
-${GUARD_PY}`,
+${g.text}`,
 
-  'python:openai-agents': () => `${PY_INSTALL}
+  'python:openai-agents': (g = guardFor('python')) => (g.id !== 'tool' ? `${PY_INSTALL}
+from immiscible import Immiscible
+
+${PY_ENV}
+immiscible = Immiscible().run()
+
+# Inside the function tool that acts:
+${g.text}` : `${PY_INSTALL}
 from immiscible import Immiscible
 from immiscible.integrations import guard_tools
 
@@ -112,9 +206,16 @@ ${PY_ENV}
 immiscible = Immiscible().run()
 
 # Every function tool asks Immiscible first; a refusal comes back to the model with the reasons.
-tools = guard_tools([send_invoice, search_orders], client=immiscible)`,
+tools = guard_tools([create_ticket, search_orders], client=immiscible)`),
 
-  'python:langchain': () => `${PY_INSTALL}
+  'python:langchain': (g = guardFor('python')) => (g.id !== 'tool' ? `${PY_INSTALL}
+from immiscible import Immiscible
+
+${PY_ENV}
+immiscible = Immiscible().run(client="langchain")
+
+# Inside the tool that acts:
+${g.text}` : `${PY_INSTALL}
 from immiscible import Immiscible
 from immiscible.integrations import guard_langchain_tools
 
@@ -122,15 +223,15 @@ ${PY_ENV}
 immiscible = Immiscible().run(client="langchain")
 
 # Guarded tools for ToolNode, bind_tools or create_react_agent: each call asks Immiscible first.
-tools = guard_langchain_tools([send_invoice, search_orders], client=immiscible)`,
+tools = guard_langchain_tools([create_ticket, search_orders], client=immiscible)`),
 
-  'python:generic': () => `${PY_INSTALL}
-from immiscible import Immiscible, tool_action
+  'python:generic': (g = guardFor('python')) => `${PY_INSTALL}
+from immiscible import ${pyImports(g)}
 
 ${PY_ENV}
 immiscible = Immiscible().run()
 
-${GUARD_PY}`,
+${g.text}`,
 
   'claude-code': () => `# Installed: .claude/hooks/immiscible-claude-code-hook.mjs and a PreToolUse entry in .claude/settings.json.
 # Start Claude Code in this project: Bash, Write, Edit, MultiEdit, NotebookEdit, WebFetch and MCP tool calls
@@ -148,18 +249,25 @@ await decideThenSign(new Immiscible(), { asset: 'USDC', network: 'base', amount:
 const pay = x402Fetch(new Immiscible(), { pay: ({ requirements }) => mySigner(requirements) });`,
 };
 
-/** { id, language, title, text } for the project, or null. */
-export function snippetFor(project, { hookInstalled = false } = {}) {
+/**
+ * { id, language, title, guard, text } for the project, or null. `covers`
+ * (from coversFrom) picks the guard; without it, the tool.call guard.
+ */
+export function snippetFor(project, { hookInstalled = false, covers = null } = {}) {
   const p = project.primary;
+  const out = (id, lang, title, fn) => {
+    const g = guardFor(lang, covers);
+    return { id, language: lang === 'python' ? 'python' : lang === 'shell' ? 'shell' : 'javascript', title, guard: g.id, text: fn(g) };
+  };
   if (p) {
     const key = `${p.lang}:${p.id}`;
     const fn = SNIPPETS[key] ?? SNIPPETS[`${p.lang}:generic`];
-    return { id: key, language: p.lang === 'python' ? 'python' : 'javascript', title: p.name, text: fn() };
+    return out(key, p.lang, p.name, fn);
   }
-  if (hookInstalled || project.claudeCode.present) return { id: 'claude-code', language: 'shell', title: 'Claude Code', text: SNIPPETS['claude-code']() };
-  if (project.wallets.length) return { id: 'wallet', language: 'javascript', title: 'Wallet', text: SNIPPETS.wallet() };
-  if (project.languages.includes('python')) return { id: 'python:generic', language: 'python', title: 'Python', text: SNIPPETS['python:generic']() };
-  if (project.languages.includes('node')) return { id: 'node:generic', language: 'javascript', title: 'JavaScript', text: SNIPPETS['node:generic']() };
+  if (hookInstalled || project.claudeCode.present) return { id: 'claude-code', language: 'shell', title: 'Claude Code', guard: 'hook', text: SNIPPETS['claude-code']() };
+  if (project.wallets.length) return { id: 'wallet', language: 'javascript', title: 'Wallet', guard: 'wallet', text: SNIPPETS.wallet() };
+  if (project.languages.includes('python')) return out('python:generic', 'python', 'Python', SNIPPETS['python:generic']);
+  if (project.languages.includes('node')) return out('node:generic', 'node', 'JavaScript', SNIPPETS['node:generic']);
   return null;
 }
 

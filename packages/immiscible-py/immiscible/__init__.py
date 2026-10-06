@@ -11,7 +11,9 @@ Standard library only, including the Ed25519 verifier.
 
 from .client import DEFAULT_BASE_URL, SDK_VERSION, Decision, Immiscible, new_idempotency_key, normalise_domain, tool_action
 from .errors import (
-    ImmiscibleApprovalRequiredError, ImmiscibleApprovalTimeoutError, ImmiscibleDeniedError, ImmiscibleError, is_refusal,
+    ImmiscibleApprovalRequiredError, ImmiscibleApprovalTimeoutError, ImmiscibleAuthenticationError, ImmiscibleConnectionError,
+    ImmiscibleDeniedError, ImmiscibleError, ImmiscibleIdempotencyConflictError, ImmiscibleInvalidRequestError, ImmiscibleRateLimitError,
+    is_refusal,
 )
 from .gateway import Gateway
 from .proxy import MCP_PROTOCOL, McpProxy, approval_from_result, approval_meta, mcp_proxy_url, mcp_server_url
@@ -28,6 +30,8 @@ __version__ = SDK_VERSION
 __all__ = [
     "Immiscible", "Decision", "tool_action", "normalise_domain", "new_idempotency_key", "DEFAULT_BASE_URL", "SDK_VERSION",
     "ImmiscibleError", "ImmiscibleDeniedError", "ImmiscibleApprovalTimeoutError", "ImmiscibleApprovalRequiredError", "is_refusal",
+    "ImmiscibleAuthenticationError", "ImmiscibleInvalidRequestError", "ImmiscibleRateLimitError", "ImmiscibleIdempotencyConflictError",
+    "ImmiscibleConnectionError",
     "Gateway", "McpProxy", "mcp_proxy_url", "mcp_server_url", "approval_from_result", "approval_meta", "MCP_PROTOCOL",
     "RunContext", "parse_traceparent", "format_traceparent", "new_trace_id", "new_span_id", "is_valid_session_id",
     "SESSION_HEADER", "ISSUED_SESSION_HEADER", "TRACEPARENT_HEADER",

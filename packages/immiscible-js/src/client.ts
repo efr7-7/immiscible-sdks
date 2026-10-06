@@ -9,6 +9,8 @@
 
 import {
   ImmiscibleError,
+  ImmiscibleConnectionError,
+  errorFromResponse,
   ImmiscibleDeniedError,
   ImmiscibleApprovalTimeoutError,
   ImmiscibleApprovalRequiredError,
@@ -18,16 +20,19 @@ import { Gateway } from './gateway.js';
 import { McpProxy } from './proxy.js';
 import type { Action, Decision, GuardOptions, Merchant, Provenance, SettleStatus, WaitOptions } from './types.js';
 
-export const SDK_VERSION = '0.1.0';
-export const DEFAULT_BASE_URL = 'http://localhost:8787';
+export const SDK_VERSION = '0.1.1';
+/** The hosted service, the same default as the CLI. Set IMMISCIBLE_URL (or baseUrl) for your own server. */
+export const DEFAULT_BASE_URL = 'https://immiscible.fly.dev';
 const SETTLE_STATUSES: readonly SettleStatus[] = ['completed', 'failed', 'cancelled'];
 const OUTCOME_STATUSES = ['accepted', 'partial', 'rejected', 'abandoned'] as const;
 const RETRY_STATUS = new Set([429, 500, 502, 503, 504]);
 
 export interface ImmiscibleOptions {
-  /** An agent key (from Agents in the console). Default: IMMISCIBLE_AGENT_KEY, then ASSAY_AGENT_KEY. */
+  /** An agent key (from Agents in the console), or an agent platform's workspace token (ipt_...). Default: IMMISCIBLE_AGENT_KEY, then ASSAY_AGENT_KEY. */
   apiKey?: string;
-  /** Default: IMMISCIBLE_URL, then ASSAY_URL, then http://localhost:8787. */
+  /** With a platform's workspace token: the agent to act as (agt_..., one the platform added). Sent as the immiscible-agent header. Default: IMMISCIBLE_AGENT_ID. */
+  agentId?: string;
+  /** Default: IMMISCIBLE_URL, then ASSAY_URL, then https://immiscible.fly.dev (the hosted service). */
   baseUrl?: string;
   /** Per request. Default 30 s. */
   timeoutMs?: number;
@@ -80,9 +85,12 @@ export interface DataRequest {
 export interface ToolActionOptions {
   /** Where the call goes, if anywhere (a domain). Read from a `url` argument when omitted. */
   domain?: string | null;
+  /** One sentence a person can approve or refuse, such as "Send invoice 0931 to Acme for £12". Strongly recommended. */
   summary?: string;
   provenance?: Provenance[];
   idempotencyKey?: string;
+  /** Warn once per tool when no summary is given (the default). The framework integrations turn it off. */
+  warnWithoutSummary?: boolean;
 }
 
 /** Read an environment variable in Node, Bun or Deno; undefined elsewhere. */
@@ -129,7 +137,7 @@ function withTimeout(signal: AbortSignal | undefined, ms: number) {
   const onAbort = () => ctl.abort(signal?.reason);
   if (signal?.aborted) ctl.abort(signal.reason);
   else signal?.addEventListener?.('abort', onAbort, { once: true });
-  const t = ms > 0 ? setTimeout(() => ctl.abort(new ImmiscibleError(`Immiscible did not answer within ${ms}ms`, { type: 'timeout' })), ms) : null;
+  const t = ms > 0 ? setTimeout(() => ctl.abort(new ImmiscibleConnectionError(`Immiscible did not answer within ${ms}ms`, { type: 'timeout' })), ms) : null;
   return {
     signal: ctl.signal,
     done() {
@@ -165,23 +173,49 @@ function money(amount: number, currency: string): string {
 
 const clip = (s: unknown, n = 240): string => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
 
+/** Arguments as a person reads them: "amount 12, customer Acme". Never raw JSON. */
+export function readableArgs(args: unknown): string {
+  if (args == null) return '';
+  if (typeof args === 'string') return clip(args, 160);
+  if (typeof args !== 'object') return clip(String(args), 160);
+  const one = (v: unknown): string => {
+    if (v == null) return 'none';
+    if (typeof v === 'string') return clip(v, 60);
+    if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+    if (Array.isArray(v)) return `${v.length} item${v.length === 1 ? '' : 's'}`;
+    return '…';
+  };
+  const entries = Array.isArray(args) ? args.map((v, i) => [String(i + 1), v] as const) : Object.entries(args as Record<string, unknown>);
+  const shown = entries.slice(0, 4).map(([k, v]) => `${k.replace(/_/g, ' ')} ${one(v)}`);
+  if (entries.length > 4) shown.push(`and ${entries.length - 4} more`);
+  return clip(shown.join(', '), 200);
+}
+
+const warnedTools = new Set<string>();
+
 /**
  * A `tool.call` action for a tool an agent is about to run. The default
  * mapping every framework integration uses; write your own for payments and
  * data releases so the gate can apply money and data rules.
+ *
+ * Give it a `summary`: it is the sentence a person reads when the call
+ * waits for them. Without one it says "Run send_invoice: amount 12" and
+ * warns once per tool.
  */
 export function toolAction(name: string, args: unknown, opts: ToolActionOptions = {}): Action {
   const a = (args && typeof args === 'object' ? args : {}) as Record<string, unknown>;
   const domain = opts.domain === undefined ? normaliseDomain(typeof a.url === 'string' ? a.url : null) : normaliseDomain(opts.domain);
-  let shown: string;
-  try {
-    shown = typeof args === 'string' ? args : JSON.stringify(args ?? {});
-  } catch {
-    shown = '[arguments not serialisable]';
+  const tool = clip(name, 120);
+  if (!opts.summary && opts.warnWithoutSummary !== false && !warnedTools.has(tool)) {
+    warnedTools.add(tool);
+    try {
+      console.warn(`immiscible: toolAction('${tool}') has no summary, so a person approving it reads "Run ${tool}". Pass { summary: 'one sentence about this call' }.`);
+    } catch { /* no console */ }
   }
+  const said = readableArgs(args);
   return {
     type: 'tool.call',
-    summary: opts.summary ?? `${clip(name, 120)}: ${clip(shown)}`,
+    summary: opts.summary ?? `Run ${tool}${said ? `: ${said}` : ''}`,
     ...(domain ? { target: { domain } } : {}),
     provenance: opts.provenance ?? [{ source: 'agent', detail: `tool call: ${clip(name, 120)}` }],
     ...(opts.idempotencyKey ? { idempotencyKey: opts.idempotencyKey } : {}),
@@ -190,6 +224,8 @@ export function toolAction(name: string, args: unknown, opts: ToolActionOptions 
 
 export class Immiscible {
   readonly apiKey: string;
+  /** The agent a platform's workspace token acts as, or null for an agent key. */
+  readonly agentId: string | null;
   readonly baseUrl: string;
   readonly timeoutMs: number;
   readonly maxRetries: number;
@@ -205,6 +241,7 @@ export class Immiscible {
       throw new ImmiscibleError('no agent key: pass { apiKey } or set IMMISCIBLE_AGENT_KEY (issue one under Agents in the console)', { type: 'missing_api_key' });
     }
     this.apiKey = key;
+    this.agentId = options.agentId ?? env('IMMISCIBLE_AGENT_ID') ?? null;
     this.baseUrl = String(options.baseUrl ?? env('IMMISCIBLE_URL') ?? env('ASSAY_URL') ?? DEFAULT_BASE_URL).replace(/\/+$/, '');
     this.timeoutMs = options.timeoutMs ?? 30_000;
     this.maxRetries = options.maxRetries ?? 2;
@@ -220,7 +257,7 @@ export class Immiscible {
    * one). One run per task keeps one task's web pages from tainting the next.
    */
   run(opts: RunOptions = {}): Immiscible {
-    return new Immiscible({ apiKey: this.apiKey, baseUrl: this.baseUrl, timeoutMs: this.timeoutMs, maxRetries: this.maxRetries, fetch: this.#fetch, run: new RunContext(opts) });
+    return new Immiscible({ apiKey: this.apiKey, agentId: this.agentId ?? undefined, baseUrl: this.baseUrl, timeoutMs: this.timeoutMs, maxRetries: this.maxRetries, fetch: this.#fetch, run: new RunContext(opts) });
   }
 
   /** The fetch this client uses, without run headers. For the SDK's own modules. */
@@ -246,6 +283,7 @@ export class Immiscible {
     const { body, signal, retry = false, auth = true } = opts;
     const headers: Record<string, string> = { accept: 'application/json', ...(opts.headers ?? {}) };
     if (auth) headers.authorization = `Bearer ${this.apiKey}`;
+    if (auth && this.agentId) headers['immiscible-agent'] = this.agentId;
     if (body !== undefined) headers['content-type'] = 'application/json';
     for (let attempt = 0; ; attempt++) {
       if (opts.attempts) opts.attempts.n = attempt + 1;
@@ -269,7 +307,7 @@ export class Immiscible {
           continue;
         }
         if (err instanceof ImmiscibleError) throw err;
-        throw new ImmiscibleError(`could not reach Immiscible at ${this.baseUrl}: ${(err as Error)?.message ?? err}`, { type: 'network_error', cause: err });
+        throw new ImmiscibleConnectionError(`could not reach Immiscible at ${this.baseUrl}: ${(err as Error)?.message ?? err}`, { type: 'network_error', cause: err });
       }
       t.done();
       this.context.observe(res.headers);
@@ -286,11 +324,14 @@ export class Immiscible {
         continue;
       }
       const e = json?.error ?? {};
-      throw new ImmiscibleError(e.message ?? `Immiscible answered ${res.status}`, {
+      const ra = Number(res.headers?.get?.('retry-after'));
+      throw errorFromResponse(e.message ?? `Immiscible answered ${res.status}`, {
         status: res.status,
         type: e.type ?? 'http_error',
         body: json,
         traceparent: res.headers?.get?.('traceparent') ?? null,
+        requestId: res.headers?.get?.('x-request-id') ?? null,
+        retryAfter: Number.isFinite(ra) && ra > 0 ? ra : null,
       });
     }
   }

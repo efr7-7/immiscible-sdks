@@ -1,0 +1,9 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "immiscible": {
+      "type": "streamable-http",
+      "url": "https://immiscible.fly.dev/mcp"
+    }
+  }
+}

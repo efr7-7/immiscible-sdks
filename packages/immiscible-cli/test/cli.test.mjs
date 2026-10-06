@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync, statSync, existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { bootServer, person, mintToken, fixture, tmp, runCli, inRepo, form } from './helpers.mjs';
+import { DENY } from '../src/claude.mjs';
 
 const SKIP = inRepo ? false : 'not inside the Immiscible repository';
 const SECOND_OWNER = 'Sent to another owner to confirm; payments start once they do.';
@@ -57,6 +58,11 @@ test('cli: end to end against the real server', { skip: SKIP, timeout: 180_000 }
     assert.equal(j.hook.state, 'skipped');
     assert.equal(j.snippet.id, 'node:openai');
     assert.match(j.snippet.text, /new OpenAI\(immiscible\.gateway\.openai\(\)\)/);
+    // A payment rule never allows tool.call, so the code it prints asks to pay.
+    assert.equal(j.snippet.guard, 'pay');
+    assert.match(j.snippet.text, /immiscible\.pay\(/);
+    assert.doesNotMatch(j.snippet.text, /toolAction/);
+    assert.match(j.snippet.text, /npm install @immiscible\/sdk/);
     assert.equal(j.test.governed, true);
     assert.equal(j.test.kind, 'payment');
     // A new supplier asks a person; the test cancelled that question at once.
@@ -98,12 +104,18 @@ test('cli: end to end against the real server', { skip: SKIP, timeout: 180_000 }
     assert.equal(r.json.snippet.id, 'claude-code');
     assert.equal(r.json.test.kind, 'action');
     const settings = JSON.parse(read(path.join(ccDir, '.claude', 'settings.json')));
-    assert.deepEqual(settings.permissions, { allow: ['Bash(npm test:*)'] });
+    // Yours kept as they were; the deny rules added beside them, shown in the same diff.
+    assert.deepEqual(settings.permissions, { allow: ['Bash(npm test:*)'], deny: [...DENY] });
+    assert.ok(r.json.hook.diff.some((l) => l.startsWith('+') && l.includes('Bash(rm -rf:*)')));
     assert.equal(settings.hooks.PostToolUse[0].hooks[0].command, 'echo after-edit');
     const pre = settings.hooks.PreToolUse;
     assert.equal(pre.length, 2);
     assert.equal(pre[0].hooks[0].command, 'echo formatting-check');
-    assert.equal(pre[1].matcher, 'Bash|Write|Edit|MultiEdit|NotebookEdit|WebFetch|mcp__.*');
+    assert.equal(pre[1].matcher, 'Bash|Write|Edit|MultiEdit|NotebookEdit|WebFetch|mcp__(?!immiscible__(check_action_status|explain_decision|spend_summary|find_waste|unwatched_keys)$).*');
+    // Immiscible's own read-only MCP tools are not sent back to it; its tools that act are.
+    const matches = (name) => new RegExp(`^(?:${pre[1].matcher})$`).test(name);
+    assert.ok(!matches('mcp__immiscible__check_action_status') && !matches('mcp__immiscible__explain_decision') && !matches('mcp__immiscible__spend_summary') && !matches('mcp__immiscible__find_waste') && !matches('mcp__immiscible__unwatched_keys'));
+    assert.ok(matches('mcp__immiscible__authorize_action') && matches('mcp__immiscible__request_payment') && matches('mcp__github__create_issue') && matches('Bash'));
     assert.match(pre[1].hooks[0].command, /\|\| exit 2$/);
     assert.equal(pre[1].hooks[0].timeout, 60);
     const hookFile = path.join(ccDir, '.claude', 'hooks', 'immiscible-claude-code-hook.mjs');
@@ -143,6 +155,24 @@ test('cli: end to end against the real server', { skip: SKIP, timeout: 180_000 }
     assert.match(by.hook.detail, /fails closed \(checked\)/);
   });
 
+  await t.test('doctor: a key in the shell wins over .env, as it does for the hook, and the difference is named', async () => {
+    const r = await cli(['doctor', '--json'], { cwd: ccDir, env: { IMMISCIBLE_AGENT_KEY: 'ask_bogus' } });
+    assert.equal(r.code, 7, r.stdout);
+    const by = Object.fromEntries(r.json.checks.map((c) => [c.id, c]));
+    assert.equal(by.env.status, 'warn');
+    assert.match(by.env.detail, /IMMISCIBLE_AGENT_KEY in this shell differs from \.env/);
+    assert.equal(by.agent_key.status, 'fail');
+    assert.match(by.agent_key.detail, /this shell's environment/);
+  });
+
+  await t.test('status: init\'s own connection tests are not counted in today', async () => {
+    const st = await cli(['status', '--json']);
+    assert.equal(st.code, 0, st.stderr);
+    const tests = s.app.db.get("SELECT COUNT(*) AS n FROM agent_actions WHERE workspace_id = ? AND idempotency_key LIKE 'immiscible-cli-test:%'", owner.wid).n;
+    assert.ok(tests > 0, 'init made connection tests');
+    assert.equal(st.json.today.total, s.app.db.get("SELECT COUNT(*) AS n FROM agent_actions WHERE workspace_id = ? AND (idempotency_key IS NULL OR idempotency_key NOT LIKE 'immiscible-cli-test:%')", owner.wid).n);
+  });
+
   await t.test('doctor: a weakened hook, a missing .env and a bad key fail, with fixes', async () => {
     const dir = fixture('claude-code');
     const settings = JSON.parse(read(path.join(dir, '.claude', 'settings.json')));
@@ -169,13 +199,30 @@ test('cli: end to end against the real server', { skip: SKIP, timeout: 180_000 }
     assert.ok(!/\u001b\[/.test(r.stdout), 'no colour when stdout is not a terminal');
   });
 
+  await t.test('init adds .env to .gitignore in a git repository, and --no-gitignore leaves it alone', async () => {
+    const dir = fixture('python-anthropic');
+    mkdirSync(path.join(dir, '.git'));
+    const r = await cli(['init', '--yes', '--json', '--no-test', '--name', 'Ignore check', '--purpose', 'other'], { cwd: dir });
+    assert.equal(r.code, 0, r.stderr + r.stdout);
+    assert.equal(r.json.env.gitignore, 'created');
+    assert.equal(r.json.env.gitignored, true);
+    assert.equal(read(path.join(dir, '.gitignore')), '.env\n');
+    const again = await cli(['init', '--yes', '--json', '--no-test'], { cwd: dir });
+    assert.equal(again.json.env.gitignore, 'unchanged');
+    const off = fixture('python-anthropic');
+    mkdirSync(path.join(off, '.git'));
+    const o = await cli(['init', '--yes', '--json', '--no-test', '--no-gitignore', '--name', 'Ignore off', '--purpose', 'other'], { cwd: off });
+    assert.equal(o.json.env.gitignore, 'declined');
+    assert.ok(!existsSync(path.join(off, '.gitignore')));
+  });
+
   await t.test('the rule waits for a second owner: exit 10 and the exact sentence', async () => {
     const other = s.app.accounts.createUser({ email: `second-${Date.now()}@cli.test`, password: 'correct horse battery staple', verified: true });
     s.app.accounts.addMember(owner.wid, other, 'owner');
     const dir = fixture('node-openai');
     const r = await cli(['init', '--yes', '--json', '--name', 'Supplier payer', '--purpose', 'pays_invoices'], { cwd: dir });
     assert.equal(r.code, 10, r.stderr + r.stdout);
-    assert.equal(r.json.ok, true);
+    assert.equal(r.json.ok, false, 'a rule still waiting is not ok');
     assert.equal(r.json.message, SECOND_OWNER);
     assert.equal(r.json.pending.message, SECOND_OWNER);
     assert.equal(r.json.rules.length, 0);
@@ -183,6 +230,8 @@ test('cli: end to end against the real server', { skip: SKIP, timeout: 180_000 }
     const human = await cli(['init', '--yes'], { cwd: dir });
     assert.equal(human.code, 10);
     assert.ok(human.stdout.includes(SECOND_OWNER));
+    assert.ok(!human.stdout.includes('Governed by Immiscible'), 'no tick while the rule waits');
+    assert.ok(human.stdout.includes('Waiting for another owner to confirm the rule'));
   });
 
   await t.test('exit codes for every refusal', async () => {

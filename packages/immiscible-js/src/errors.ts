@@ -12,6 +12,14 @@ export interface ImmiscibleErrorInfo {
   body?: unknown;
   cause?: unknown;
   traceparent?: string | null;
+  requestId?: string | null;
+}
+
+/** One problem with one field of a request, as the server reports it in `error.errors[]`. */
+export interface FieldError {
+  field?: string;
+  message?: string;
+  [key: string]: unknown;
 }
 
 export class ImmiscibleError extends Error {
@@ -23,6 +31,8 @@ export class ImmiscibleError extends Error {
   body: unknown;
   /** The server's traceparent for the failed call, to find it in the evidence ledger. */
   traceparent: string | null;
+  /** The server's x-request-id: quote it when asking for help with a request. */
+  requestId: string | null;
 
   constructor(message: string, info: ImmiscibleErrorInfo = {}) {
     super(message, info.cause === undefined ? undefined : { cause: info.cause });
@@ -31,7 +41,63 @@ export class ImmiscibleError extends Error {
     this.type = info.type ?? 'immiscible_error';
     this.body = info.body ?? null;
     this.traceparent = info.traceparent ?? null;
+    this.requestId = info.requestId ?? null;
   }
+}
+
+/** 401: the key is missing, unknown or revoked. */
+export class ImmiscibleAuthenticationError extends ImmiscibleError {
+  constructor(message: string, info: ImmiscibleErrorInfo = {}) {
+    super(message, info);
+    this.name = 'ImmiscibleAuthenticationError';
+  }
+}
+
+/** 400 or 422: the request was malformed. `errors` names each field that was wrong. */
+export class ImmiscibleInvalidRequestError extends ImmiscibleError {
+  errors: FieldError[];
+  constructor(message: string, info: ImmiscibleErrorInfo = {}) {
+    super(message, info);
+    this.name = 'ImmiscibleInvalidRequestError';
+    const list = (info.body as any)?.error?.errors;
+    this.errors = Array.isArray(list) ? list : [];
+  }
+}
+
+/** 429: too many requests. `retryAfter` is in seconds, when the server said. */
+export class ImmiscibleRateLimitError extends ImmiscibleError {
+  retryAfter: number | null;
+  constructor(message: string, info: ImmiscibleErrorInfo & { retryAfter?: number | null } = {}) {
+    super(message, info);
+    this.name = 'ImmiscibleRateLimitError';
+    this.retryAfter = info.retryAfter ?? null;
+  }
+}
+
+/** 409 idempotency_conflict: the same idempotency key was sent with a different body. */
+export class ImmiscibleIdempotencyConflictError extends ImmiscibleError {
+  constructor(message: string, info: ImmiscibleErrorInfo = {}) {
+    super(message, info);
+    this.name = 'ImmiscibleIdempotencyConflictError';
+  }
+}
+
+/** The server could not be reached, or did not answer in time. */
+export class ImmiscibleConnectionError extends ImmiscibleError {
+  constructor(message: string, info: ImmiscibleErrorInfo = {}) {
+    super(message, info);
+    this.name = 'ImmiscibleConnectionError';
+  }
+}
+
+/** The error class for an HTTP failure, chosen by status and the server's error type. */
+export function errorFromResponse(message: string, info: ImmiscibleErrorInfo & { retryAfter?: number | null }): ImmiscibleError {
+  const { status, type } = info;
+  if (status === 401) return new ImmiscibleAuthenticationError(message, info);
+  if (status === 429) return new ImmiscibleRateLimitError(message, info);
+  if (status === 409 && type === 'idempotency_conflict') return new ImmiscibleIdempotencyConflictError(message, info);
+  if (status === 400 || status === 422) return new ImmiscibleInvalidRequestError(message, info);
+  return new ImmiscibleError(message, info);
 }
 
 /** Immiscible said no. `reasons` are plain English; `signals` are the risk signals that fired. */

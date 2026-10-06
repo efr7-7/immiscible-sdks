@@ -50,7 +50,7 @@ export function clientOf(opts?: { client?: Immiscible }): Immiscible {
 
 /** The default mapping: every tool call is a `tool.call` action. */
 export const defaultMapToAction: MapToAction = ({ name, args, callId }) =>
-  toolAction(name, args, callId ? { idempotencyKey: `tool_${String(callId).slice(0, 120)}` } : {});
+  toolAction(name, args, { warnWithoutSummary: false, ...(callId ? { idempotencyKey: `tool_${String(callId).slice(0, 120)}` } : {}) });
 
 /** What the model reads when Immiscible says no. Written to stop retries, not invite them. */
 export function refusalMessage(err: unknown): string {

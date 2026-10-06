@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "immiscible": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/immiscible-mcp.mjs"]
+    }
+  }
+}

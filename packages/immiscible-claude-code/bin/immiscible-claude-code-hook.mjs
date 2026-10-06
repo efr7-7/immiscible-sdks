@@ -22,7 +22,8 @@ if (process.argv.includes('--print-config')) {
     hooks: {
       PreToolUse: [
         {
-          matcher: 'Bash|Write|Edit|MultiEdit|NotebookEdit|WebFetch|mcp__.*',
+          // Immiscible's own read-only MCP tools are not sent back to it: a loop, and noise.
+          matcher: 'Bash|Write|Edit|MultiEdit|NotebookEdit|WebFetch|mcp__(?!immiscible__(check_action_status|explain_decision|spend_summary|find_waste|unwatched_keys)$).*',
           // || exit 2: Claude Code blocks only on exit code 2, so a missing file or a crash blocks too.
           hooks: [{ type: 'command', command: `node "${self}" || exit 2`, timeout: 60 }],
         },

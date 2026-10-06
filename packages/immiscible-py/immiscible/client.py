@@ -22,13 +22,17 @@ import uuid
 import warnings
 from typing import Any, Callable, Dict, Iterable, List, Optional, Union
 
-from .errors import ImmiscibleApprovalRequiredError, ImmiscibleApprovalTimeoutError, ImmiscibleDeniedError, ImmiscibleError
+from .errors import (
+    ImmiscibleApprovalRequiredError, ImmiscibleApprovalTimeoutError, ImmiscibleConnectionError, ImmiscibleDeniedError, ImmiscibleError,
+    error_from_response,
+)
 from .trace import RunContext, is_valid_session_id
 
 __all__ = ["Immiscible", "Decision", "normalise_domain", "new_idempotency_key", "tool_action", "DEFAULT_BASE_URL", "SDK_VERSION"]
 
-SDK_VERSION = "0.1.0"
-DEFAULT_BASE_URL = "http://localhost:8787"
+SDK_VERSION = "0.1.1"
+# The hosted service, the same default as the CLI. Set IMMISCIBLE_URL (or base_url) for your own server.
+DEFAULT_BASE_URL = "https://immiscible.fly.dev"
 SETTLE_STATUSES = ("completed", "failed", "cancelled")
 OUTCOME_STATUSES = ("accepted", "partial", "rejected", "abandoned")
 _RETRY_STATUS = {429, 500, 502, 503, 504}
@@ -110,19 +114,60 @@ def _clip(s: Any, n: int = 240) -> str:
     return re.sub(r"\s+", " ", str(s if s is not None else "")).strip()[:n]
 
 
+def readable_args(args: Any) -> str:
+    """Arguments as a person reads them: "amount 12, customer Acme". Never raw JSON."""
+    if args is None:
+        return ""
+    if isinstance(args, str):
+        return _clip(args, 160)
+    if not isinstance(args, (dict, list, tuple)):
+        return _clip(args, 160)
+
+    def one(v: Any) -> str:
+        if v is None:
+            return "none"
+        if isinstance(v, bool):
+            return "true" if v else "false"
+        if isinstance(v, (str, int, float)):
+            return _clip(v, 60)
+        if isinstance(v, (list, tuple)):
+            return f"{len(v)} item{'' if len(v) == 1 else 's'}"
+        return "\u2026"
+
+    entries = [(str(i + 1), v) for i, v in enumerate(args)] if isinstance(args, (list, tuple)) else [(str(k), v) for k, v in args.items()]
+    shown = [f"{k.replace('_', ' ')} {one(v)}" for k, v in entries[:4]]
+    if len(entries) > 4:
+        shown.append(f"and {len(entries) - 4} more")
+    return _clip(", ".join(shown), 200)
+
+
+_warned_tools: set = set()
+
+
 def tool_action(name: str, args: Any, *, domain: Any = _UNSET, summary: Optional[str] = None,
-                provenance: Optional[List[dict]] = None, idempotency_key: Optional[str] = None) -> dict:
-    """A `tool.call` action for a tool an agent is about to run. The default every integration uses."""
+                provenance: Optional[List[dict]] = None, idempotency_key: Optional[str] = None,
+                warn_without_summary: bool = True) -> dict:
+    """A `tool.call` action for a tool an agent is about to run. The default every integration uses.
+
+    Give it a `summary`: it is the sentence a person reads when the call waits
+    for them. Without one it says "Run send_invoice: amount 12" and warns once
+    per tool.
+    """
     a = args if isinstance(args, dict) else {}
     d = normalise_domain(a.get("url")) if domain is _UNSET else normalise_domain(domain)
-    try:
-        shown = args if isinstance(args, str) else json.dumps(args if args is not None else {}, separators=(",", ":"), default=str)
-    except (TypeError, ValueError):
-        shown = "[arguments not serialisable]"
+    tool = _clip(name, 120)
+    if not summary and warn_without_summary and tool not in _warned_tools:
+        _warned_tools.add(tool)
+        warnings.warn(
+            f"immiscible: tool_action({tool!r}) has no summary, so a person approving it reads \"Run {tool}\". "
+            "Pass summary=\"one sentence about this call\".",
+            stacklevel=2,
+        )
+    said = readable_args(args)
     action: Dict[str, Any] = {
         "type": "tool.call",
-        "summary": summary or f"{_clip(name, 120)}: {_clip(shown)}",
-        "provenance": provenance or [{"source": "agent", "detail": f"tool call: {_clip(name, 120)}"}],
+        "summary": summary or (f"Run {tool}: {said}" if said else f"Run {tool}"),
+        "provenance": provenance or [{"source": "agent", "detail": f"tool call: {tool}"}],
     }
     if d:
         action["target"] = {"domain": d}
@@ -207,15 +252,18 @@ class Immiscible:
                     attempt += 1
                     continue
                 err = ((payload or {}).get("error") or {}) if isinstance(payload, dict) else {}
-                raise ImmiscibleError(err.get("message") or f"Immiscible answered {e.code}", status=e.code,
-                                      type=err.get("type") or "http_error", body=payload,
-                                      traceparent=e.headers.get("traceparent") if e.headers else None) from None
+                ra = e.headers.get("retry-after") if e.headers else None
+                raise error_from_response(err.get("message") or f"Immiscible answered {e.code}", status=e.code,
+                                          type=err.get("type") or "http_error", body=payload,
+                                          traceparent=e.headers.get("traceparent") if e.headers else None,
+                                          request_id=e.headers.get("x-request-id") if e.headers else None,
+                                          retry_after=float(ra) if ra and ra.replace(".", "", 1).isdigit() else None) from None
             except (urllib.error.URLError, OSError, TimeoutError) as e:
                 if retry and attempt < self.max_retries:
                     time.sleep(0.25 * 2 ** attempt)
                     attempt += 1
                     continue
-                raise ImmiscibleError(f"could not reach Immiscible at {self.base_url}: {getattr(e, 'reason', e)}", type="network_error") from e
+                raise ImmiscibleConnectionError(f"could not reach Immiscible at {self.base_url}: {getattr(e, 'reason', e)}", type="network_error") from e
 
     # ------------------------------------------------------------ the gate
 

@@ -21,7 +21,7 @@ import urllib.parse
 import urllib.request
 from typing import Any, Callable, Dict, Optional, Union
 
-from .errors import ImmiscibleApprovalRequiredError, ImmiscibleDeniedError, ImmiscibleError
+from .errors import ImmiscibleApprovalRequiredError, ImmiscibleConnectionError, ImmiscibleDeniedError, ImmiscibleError
 
 __all__ = ["McpProxy", "mcp_proxy_url", "mcp_server_url", "approval_from_result", "approval_meta", "MCP_PROTOCOL",
            "META_APPROVAL_ID", "META_IDEMPOTENCY_KEY"]
@@ -127,7 +127,7 @@ class McpProxy:
         except urllib.error.HTTPError as e:
             status, text, hdrs = e.code, e.read().decode("utf-8", "replace"), e.headers
         except (urllib.error.URLError, OSError) as e:
-            raise ImmiscibleError(f"could not reach the Immiscible MCP proxy at {self.url}: {getattr(e, 'reason', e)}", type="network_error") from e
+            raise ImmiscibleConnectionError(f"could not reach the Immiscible MCP proxy at {self.url}: {getattr(e, 'reason', e)}", type="network_error") from e
         sid = hdrs.get("mcp-session-id") if hdrs else None
         if sid:
             self.session_id = sid
@@ -138,7 +138,9 @@ class McpProxy:
         return msg
 
     def initialize(self) -> dict:
-        msg = self.rpc("initialize", {"protocolVersion": MCP_PROTOCOL, "capabilities": {}, "clientInfo": {"name": "immiscible-python", "version": "0.1.0"}})
+        from .client import SDK_VERSION  # imported here: client imports this module
+
+        msg = self.rpc("initialize", {"protocolVersion": MCP_PROTOCOL, "capabilities": {}, "clientInfo": {"name": "immiscible-python", "version": SDK_VERSION}})
         if "error" in msg:
             raise _rpc_error(msg["error"])
         self.server_info = (msg.get("result") or {}).get("serverInfo")

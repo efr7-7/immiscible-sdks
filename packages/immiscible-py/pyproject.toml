@@ -4,15 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "immiscible"
-version = "0.1.0"
-description = "Govern what AI agents spend, share and do: authorize tool calls, wait for a person, settle, and verify signed receipts. Standard library only."
+version = "0.1.1"
+description = "Approvals, spend limits and signed receipts for AI agents: ask before a tool pays, shares data or acts, wait for a person, settle and verify. Guards for the OpenAI Agents SDK, LangChain and LangGraph. Standard library only."
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Eóin Forker" }]
 dependencies = []
-keywords = ["ai agents", "agent governance", "spend control", "finops", "tokenops", "mcp", "claude code", "ai", "agents", "guardrails", "authorization", "approvals", "receipts", "openai-agents", "langchain", "langgraph"]
+keywords = ["ai agents", "agent governance", "spend control", "finops", "tokenops", "mcp", "claude code", "ai", "agents", "guardrails", "authorization", "approvals", "receipts", "openai-agents", "langchain", "langgraph", "human-in-the-loop", "approval", "spend-limits", "budget", "kill-switch", "audit-log", "ai-safety", "agent-security", "llm", "mcp-server", "model-context-protocol", "x402"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
@@ -36,6 +36,8 @@ Homepage = "https://immiscible.fly.dev"
 Documentation = "https://immiscible.fly.dev/docs/sdks"
 Source = "https://github.com/efr7-7/immiscible-sdks/tree/main/packages/immiscible-py"
 Issues = "https://github.com/efr7-7/immiscible-sdks/issues"
+Changelog = "https://immiscible.fly.dev/docs/changelog"
+"Answers" = "https://immiscible.fly.dev/docs/answers"
 
 [project.optional-dependencies]
 # Nothing here is needed by the SDK itself; these are the frameworks the integrations are tested against.

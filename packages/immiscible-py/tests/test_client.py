@@ -191,9 +191,21 @@ class Client(unittest.TestCase):
         self.assertEqual(data.released["address"], "1 Example Street, London")
         a = tool_action("fetch_page", {"url": "https://www.Example.com/x"})
         self.assertEqual((a["type"], a["target"]), ("tool.call", {"domain": "example.com"}))
-        self.assertTrue(a["summary"].startswith('fetch_page: {"url"'))
+        self.assertEqual(a["summary"], "Run fetch_page: url https://www.Example.com/x")
         with self.assertRaises(TypeError):
             Immiscible.payment_action(64.2, "GBP", "x.com")
+
+    def test_tool_action_summary_is_a_sentence_and_warns_once(self):
+        import warnings as w
+        with w.catch_warnings(record=True) as caught:
+            w.simplefilter("always")
+            a = tool_action("send_invoice_py", {"amount": 12, "customer_name": "Acme", "lines": [1, 2], "meta": {"a": 1}, "extra": True})
+            self.assertEqual(a["summary"], "Run send_invoice_py: amount 12, customer name Acme, lines 2 items, meta \u2026, and 1 more")
+            tool_action("send_invoice_py", {"amount": 13})
+            self.assertEqual(sum("no summary" in str(c.message) for c in caught), 1)
+            self.assertEqual(tool_action("other_py", {}, summary="Send invoice 0931 to Acme")["summary"], "Send invoice 0931 to Acme")
+            self.assertEqual(tool_action("quiet_py", {}, warn_without_summary=False)["summary"], "Run quiet_py")
+            self.assertEqual(sum("no summary" in str(c.message) for c in caught), 1)
 
     def test_outcome(self):
         im = self.client()

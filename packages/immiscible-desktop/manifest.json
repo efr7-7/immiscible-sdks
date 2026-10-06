@@ -1,0 +1,64 @@
+{
+  "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/mcpb/main/schemas/mcpb-manifest-v0.3.schema.json",
+  "manifest_version": "0.3",
+  "name": "immiscible",
+  "display_name": "Immiscible",
+  "version": "0.1.1",
+  "description": "Ask before AI agents pay, share data or act: allow, deny or ask a person, with signed receipts.",
+  "long_description": "Immiscible decides what AI agents may spend, share and do. With this extension, Claude asks Immiscible before it pays, shares personal data or takes an action that reaches another system. Each request is decided against rules your organisation wrote: allowed with a signed receipt, sent to a named person to approve, or refused, with the reasons in plain English. Immiscible never holds funds, card numbers or wallet keys and never moves money.\n\nThe extension is a small local bridge to Immiscible's hosted MCP server: it forwards each message and holds nothing but the session. If Immiscible cannot be reached, Claude is told there is no decision, which is never an allow. Get an agent key with `npx immiscible init`, or in the console under Agents.",
+  "author": { "name": "Eóin Forker", "url": "https://immiscible.fly.dev" },
+  "repository": { "type": "git", "url": "https://github.com/efr7-7/immiscible-sdks" },
+  "homepage": "https://immiscible.fly.dev",
+  "documentation": "https://immiscible.fly.dev/docs/ai-agents",
+  "support": "https://github.com/efr7-7/immiscible-sdks/issues",
+  "icon": "icon.png",
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.mjs",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/index.mjs"],
+      "env": {
+        "IMMISCIBLE_URL": "${user_config.server_url}",
+        "IMMISCIBLE_AGENT_KEY": "${user_config.agent_key}"
+      }
+    }
+  },
+  "tools": [
+    { "name": "request_payment", "description": "Ask before spending any money." },
+    { "name": "request_personal_data", "description": "Ask before giving anyone the person's details." },
+    { "name": "authorize_action", "description": "Ask before any other consequential action: email, calendar, account changes, tool calls." },
+    { "name": "check_action_status", "description": "Poll a request a person is deciding." },
+    { "name": "explain_decision", "description": "Say in plain English why something was allowed, held or refused." },
+    { "name": "settle_action", "description": "Report what happened after an allowed action." },
+    { "name": "spend_summary", "description": "What the company spent on AI, by provider, model, team or key." },
+    { "name": "find_waste", "description": "Estimates of what cheaper models and caching could save, and the biggest cost drivers." },
+    { "name": "unwatched_keys", "description": "AI API keys nobody is watching: unused, unowned or on a personal address." },
+    { "name": "set_budget", "description": "Ask to set a monthly AI budget; a person approves it first." },
+    { "name": "revoke_key", "description": "Ask to switch off an API key; a person approves it first." }
+  ],
+  "keywords": ["approvals", "spend limits", "agent governance", "kill switch", "audit", "payments", "human in the loop"],
+  "license": "MIT",
+  "privacy_policies": ["https://immiscible.fly.dev/legal/privacy"],
+  "compatibility": {
+    "claude_desktop": ">=0.10.0",
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": { "node": ">=18.0.0" }
+  },
+  "user_config": {
+    "agent_key": {
+      "type": "string",
+      "title": "Agent key",
+      "description": "The agent's key (ask_...), from npx immiscible init or the agent's setup page in the console. It can only ask; it cannot approve anything.",
+      "sensitive": true,
+      "required": true
+    },
+    "server_url": {
+      "type": "string",
+      "title": "Immiscible server",
+      "description": "Leave as it is for the hosted service, or the address of your own server.",
+      "default": "https://immiscible.fly.dev",
+      "required": false
+    }
+  }
+}

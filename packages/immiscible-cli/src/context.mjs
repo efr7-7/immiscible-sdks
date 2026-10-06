@@ -25,7 +25,7 @@ export function makeContext({ flags, ui, env = process.env, cwd = process.cwd(),
     /** The CLI token, or the "sign in first" error. */
     requireToken() {
       if (r.token) return r.token;
-      throw new CliError(`not signed in to ${r.url}`, { exit: EXIT.AUTH, code: 'not_signed_in', fix: 'Run immiscible login (or pass --token, or set IMMISCIBLE_TOKEN in CI).' });
+      throw new CliError(`not signed in to ${r.url}`, { exit: EXIT.AUTH, code: 'not_signed_in', fix: 'Run immiscible login (with --json it first prints the link for a person to open), or pass --token, or set IMMISCIBLE_TOKEN in CI.' });
     },
   };
 }

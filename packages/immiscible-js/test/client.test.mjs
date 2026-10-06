@@ -204,8 +204,27 @@ test('toolAction: a tool.call with the target domain read from a url argument', 
   const a = toolAction('fetch_page', { url: 'https://www.Example.com/x' });
   assert.equal(a.type, 'tool.call');
   assert.deepEqual(a.target, { domain: 'example.com' });
-  assert.match(a.summary, /^fetch_page: \{"url"/);
+  assert.equal(a.summary, 'Run fetch_page: url https://www.Example.com/x');
   assert.equal(toolAction('t', {}, { domain: null }).target, undefined);
+});
+
+test('toolAction: the default summary is a sentence, never raw JSON, and a missing summary warns once per tool', () => {
+  const warned = [];
+  const orig = console.warn;
+  console.warn = (m) => warned.push(String(m));
+  try {
+    const a = toolAction('send_invoice_x', { amount: 12, customer_name: 'Acme', lines: [1, 2], meta: { a: 1 }, extra: true });
+    assert.equal(a.summary, 'Run send_invoice_x: amount 12, customer name Acme, lines 2 items, meta …, and 1 more');
+    toolAction('send_invoice_x', { amount: 13 });
+    assert.equal(warned.length, 1);
+    assert.match(warned[0], /no summary/);
+    assert.equal(toolAction('send_invoice_y', {}, { summary: 'Send invoice 0931 to Acme' }).summary, 'Send invoice 0931 to Acme');
+    assert.equal(warned.length, 1, 'a summary never warns');
+    assert.equal(toolAction('quiet_tool', {}, { warnWithoutSummary: false }).summary, 'Run quiet_tool');
+    assert.equal(warned.length, 1);
+  } finally {
+    console.warn = orig;
+  }
 });
 
 test('outcome: TokenOps statuses are checked and sent', async () => {

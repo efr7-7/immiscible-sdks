@@ -17,9 +17,10 @@
  * results with `approvalFromResult(result)`.
  */
 
-import { ImmiscibleError, ImmiscibleDeniedError, ImmiscibleApprovalRequiredError } from './errors.js';
+import { ImmiscibleError, ImmiscibleConnectionError, ImmiscibleDeniedError, ImmiscibleApprovalRequiredError } from './errors.js';
 import type { Decision, WaitOptions } from './types.js';
 import type { Immiscible } from './client.js';
+import { SDK_VERSION } from './client.js';
 
 export const MCP_PROTOCOL = '2025-06-18';
 /** `_meta` keys the proxy reads. Wire names, kept from the protocol's first version. */
@@ -130,7 +131,7 @@ export class McpProxy {
       text = await res.text();
     } catch (err) {
       if (opts.signal?.aborted) throw opts.signal.reason ?? err;
-      throw new ImmiscibleError(`could not reach the Immiscible MCP proxy at ${this.url}: ${(err as Error)?.message ?? err}`, { type: 'network_error', cause: err });
+      throw new ImmiscibleConnectionError(`could not reach the Immiscible MCP proxy at ${this.url}: ${(err as Error)?.message ?? err}`, { type: 'network_error', cause: err });
     }
     const sid = res.headers?.get?.('mcp-session-id');
     if (sid) this.sessionId = sid;
@@ -142,7 +143,7 @@ export class McpProxy {
 
   /** Open a proxy session. Called for you before the first tools call. */
   async initialize(opts: { signal?: AbortSignal } = {}): Promise<any> {
-    const msg = await this.rpc('initialize', { protocolVersion: MCP_PROTOCOL, capabilities: {}, clientInfo: { name: '@immiscible/sdk', version: '0.1.0' } }, opts);
+    const msg = await this.rpc('initialize', { protocolVersion: MCP_PROTOCOL, capabilities: {}, clientInfo: { name: '@immiscible/sdk', version: SDK_VERSION } }, opts);
     if (msg.error) throw rpcError(msg.error);
     this.serverInfo = msg.result?.serverInfo ?? null;
     return msg.result;

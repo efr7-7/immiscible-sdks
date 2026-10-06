@@ -50,7 +50,7 @@ def client_of(client: Optional[Immiscible]) -> Immiscible:
 
 def default_map_to_action(call: ToolCall) -> dict:
     """Every tool call is a `tool.call` action named after the tool."""
-    return tool_action(call.name, call.args)
+    return tool_action(call.name, call.args, warn_without_summary=False)
 
 
 def parse_args(raw: Any) -> Any:

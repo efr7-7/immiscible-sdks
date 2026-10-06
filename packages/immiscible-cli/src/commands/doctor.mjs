@@ -92,14 +92,20 @@ export async function doctor(ctx) {
   // ------------------------------------------------------------ .env
   const envFile = path.join(dir, '.env');
   const env = readEnvFile(envFile);
-  const url = env.values.IMMISCIBLE_URL ?? ctx.env.IMMISCIBLE_URL ?? null;
-  const key = env.values.IMMISCIBLE_AGENT_KEY ?? ctx.env.IMMISCIBLE_AGENT_KEY ?? null;
-  const where = (name) => (env.values[name] ? '.env' : 'the environment');
+  // The hook's own order: Node's --env-file-if-exists never replaces a
+  // variable already in the environment, so the environment wins over .env.
+  const pick = (name) => ctx.env[name] || env.values[name] || null;
+  const url = pick('IMMISCIBLE_URL');
+  const key = pick('IMMISCIBLE_AGENT_KEY');
+  const where = (name) => (ctx.env[name] ? 'the environment' : '.env');
+  const shadowed = ['IMMISCIBLE_AGENT_KEY', 'IMMISCIBLE_URL'].filter((n) => ctx.env[n] && env.values[n] && ctx.env[n] !== env.values[n]);
   if (!url || !key) {
     const missing = [!url && 'IMMISCIBLE_URL', !key && 'IMMISCIBLE_AGENT_KEY'].filter(Boolean);
     add('env', 'Environment', 'fail', `${missing.join(' and ')} not set in .env or the environment`, 'Run immiscible init.', 'init');
   } else if (url.replace(/\/+$/, '') !== ctx.url) {
     add('env', 'Environment', 'warn', `IMMISCIBLE_URL is ${url} (${where('IMMISCIBLE_URL')}), but this check ran against ${ctx.url}`, `Run immiscible doctor --url ${url}.`);
+  } else if (shadowed.length) {
+    add('env', 'Environment', 'warn', `${shadowed.join(' and ')} in this shell ${shadowed.length === 1 ? 'differs' : 'differ'} from .env; the hook uses the shell's value, so that is the one checked below`, `Unset ${shadowed.join(' and ')} in this shell (unset ${shadowed.join(' ')}), or make it match .env.`);
   } else {
     add('env', 'Environment', 'ok', `IMMISCIBLE_URL and IMMISCIBLE_AGENT_KEY from ${where('IMMISCIBLE_AGENT_KEY')}`);
   }
@@ -111,15 +117,16 @@ export async function doctor(ctx) {
     const r = await request(ctx.url, '/v1/cli/agent-key', { auth: key, fetchImpl: ctx.fetchImpl });
     if (r.ok) {
       const k = r.json;
-      const label = `${k.agent.name} (${k.workspace.name})`;
+      const label = `${k.agent.name} (${k.workspace.name})${where('IMMISCIBLE_AGENT_KEY') === '.env' ? '' : ', key from the environment'}`;
       if (k.agent.status !== 'active') add('agent_key', 'Agent key', 'fail', `${label} is ${k.agent.status === 'frozen' ? 'stopped' : k.agent.status}: every request is refused`, 'Someone who can restart it does so from the agent\'s page in the console.');
-      else if (k.waitingForSecondOwner && !k.rules) add('agent_key', 'Agent key', 'warn', `${label}: ${k.pending?.message ?? 'its rule waits for another owner to confirm'}`, 'Ask another owner to confirm it under Approvals in the console.');
+      else if (k.waitingForSecondOwner && !k.rules) add('agent_key', 'Agent key', 'warn', `${label}: ${k.pending?.message ?? 'its rule waits for another owner to confirm'}`, k.pending?.confirmUrl ? `Ask another owner of the workspace to confirm it: ${k.pending.confirmUrl}` : 'Ask another owner to confirm it on the agent\'s page in the console.');
       else if (!k.rules) add('agent_key', 'Agent key', 'warn', `${label} has no rules, so everything it asks for is refused`, 'Add a rule on the agent\'s page in the console.');
       else add('agent_key', 'Agent key', 'ok', `${label}: active, ${k.rules} rule${k.rules === 1 ? '' : 's'}`);
     } else if (r.status === 404 && !r.json?.error) {
       add('agent_key', 'Agent key', 'fail', `${ctx.url} has no CLI API; it may run an older version of Immiscible`, 'Upgrade the server.');
     } else {
-      add('agent_key', 'Agent key', 'fail', r.json?.error?.message ?? `HTTP ${r.status}`, 'Run immiscible init to make a new key.', 'init');
+      const fromShell = where('IMMISCIBLE_AGENT_KEY') !== '.env';
+      add('agent_key', 'Agent key', 'fail', `${r.json?.error?.message ?? `HTTP ${r.status}`}${fromShell ? ' (the key in this shell\'s environment, which the hook uses before .env)' : ''}`, fromShell ? 'Unset IMMISCIBLE_AGENT_KEY in this shell, or run immiscible init to make a new key.' : 'Run immiscible init to make a new key.', 'init');
     }
   }
 
@@ -135,7 +142,8 @@ export async function doctor(ctx) {
     const problems = [];
     if (e.error) problems.push(`${path.basename(e.file)} is ${e.error}`);
     else {
-      if (e.matcher !== MATCHER) problems.push(`the matcher is "${e.matcher}", not the full "${MATCHER}"`);
+      // The older matcher (every MCP tool, Immiscible's own included) covers more, so it is not a problem.
+      if (e.matcher !== MATCHER && e.matcher !== 'Bash|Write|Edit|MultiEdit|NotebookEdit|WebFetch|mcp__.*') problems.push(`the matcher is "${e.matcher}", not the full "${MATCHER}"`);
       if (!/\|\|\s*exit 2\s*$/.test(e.command)) problems.push('the command does not end in "|| exit 2", so a crash would let the call through');
       if (e.timeout != null && e.timeout > HOOK_TIMEOUT) problems.push(`the timeout is ${e.timeout}s; keep it at ${HOOK_TIMEOUT} or less`);
       if (e.command.includes('.claude/hooks/') && !h.hookExists) problems.push('the hook file .claude/hooks/immiscible-claude-code-hook.mjs is missing');
@@ -144,8 +152,12 @@ export async function doctor(ctx) {
       add('hook', 'Claude Code hook', 'fail', problems.join('; '), 'Run immiscible init to put it right.', 'init');
     } else {
       const fc = hookFailsClosed(dir, e.command);
+      // The server's own copy is the one its rules expect (a newer hook says which project a call runs in).
+      const served = reachable && h.hookExists ? await request(ctx.url, '/downloads/claude-code-hook.mjs', { fetchImpl: ctx.fetchImpl, headers: { accept: 'text/javascript' } }).catch(() => null) : null;
+      const behindServer = served?.ok && served.text && served.text !== h.hookText;
       if (fc.ran && !fc.blocks) add('hook', 'Claude Code hook', 'fail', `installed, but it did not refuse when Immiscible was unreachable (decision ${fc.decision ?? 'none'}, exit ${fc.exitCode})${fc.stderr ? `: ${fc.stderr}` : ''}`, 'Run immiscible init to reinstall it.', 'init');
-      else if (h.hookExists && h.current === false) add('hook', 'Claude Code hook', 'warn', 'installed and fails closed, but the hook file is older than this CLI\'s', 'Run immiscible init to update it.', 'init');
+      else if (h.hookExists && h.current === false) add('hook', 'Claude Code hook', 'warn', 'installed and fails closed, but the hook is out of date: it differs from the one this CLI ships', 'Run immiscible init to update it.', 'init');
+      else if (behindServer) add('hook', 'Claude Code hook', 'warn', `installed and fails closed, but the hook is out of date: it differs from the one ${ctx.url} serves, so edits inside the project may ask a person`, 'Run npx immiscible@latest init to update it.', 'init');
       else add('hook', 'Claude Code hook', 'ok', `installed in ${path.relative(dir, e.file)}, full matcher, ${fc.ran ? 'fails closed (checked)' : 'ends in || exit 2'}`);
     }
   }
@@ -173,7 +185,11 @@ export async function doctor(ctx) {
   const mark = { ok: c.green('✓'), warn: c.yellow('!'), fail: c.red('✗'), skip: c.dim('-') };
   for (const x of checks) {
     ui.out(`${mark[x.status]} ${x.title.padEnd(w)}  ${x.status === 'skip' ? c.dim(x.detail) : x.detail}`);
-    if (x.fix && x.status !== 'ok' && x.status !== 'skip') ui.out(`  ${' '.repeat(w)}  ${c.dim('Fix:')} ${x.fix} ${c.dim(x.docs ?? '')}`);
+    if (x.fix && x.status !== 'ok' && x.status !== 'skip') {
+      // The fix may end in a link of its own, so the docs link goes on its own line.
+      ui.out(`  ${' '.repeat(w)}  ${c.dim('Fix:')} ${x.fix}`);
+      if (x.docs) ui.out(`  ${' '.repeat(w)}  ${c.dim(`Docs: ${x.docs}`)}`);
+    }
   }
   ui.blank();
   const warns = checks.filter((x) => x.status === 'warn').length;

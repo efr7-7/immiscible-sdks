@@ -1,0 +1,11 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "immiscible",
+  "version": "0.1.1",
+  "description": "Ask before AI agents pay, share data or act: allow, deny or ask a person, with signed receipts.",
+  "author": { "name": "Eóin Forker", "url": "https://immiscible.fly.dev" },
+  "homepage": "https://immiscible.fly.dev/docs/ai-agents",
+  "repository": "https://github.com/efr7-7/immiscible-sdks",
+  "license": "MIT",
+  "keywords": ["approvals", "spend limits", "agent governance", "kill switch", "audit", "payments", "human in the loop"]
+}

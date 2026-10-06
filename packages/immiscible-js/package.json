@@ -1,7 +1,7 @@
 {
   "name": "@immiscible/sdk",
-  "version": "0.1.0",
-  "description": "Govern what AI agents spend, share and do: authorize tool calls, wait for a person, settle, and verify signed receipts. Gateway helpers for OpenAI, Anthropic and the Vercel AI SDK. Zero runtime dependencies.",
+  "version": "0.1.1",
+  "description": "Approvals, spend limits and signed receipts for AI agents: ask before a tool pays, shares data or acts, wait for a person, settle, verify. Guards for the OpenAI Agents SDK, LangChain, LangGraph and the Vercel AI SDK; x402 and wallet payments; an LLM gateway with budgets. Zero runtime dependencies.",
   "license": "MIT",
   "author": "Eóin Forker",
   "homepage": "https://immiscible.fly.dev",
@@ -26,45 +26,90 @@
   "types": "./dist/esm/index.d.ts",
   "exports": {
     ".": {
-      "import": { "types": "./dist/esm/index.d.ts", "default": "./dist/esm/index.js" },
-      "require": { "types": "./dist/cjs/index.d.ts", "default": "./dist/cjs/index.js" }
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/index.d.ts",
+        "default": "./dist/cjs/index.js"
+      }
     },
     "./integrations": {
-      "import": { "types": "./dist/esm/integrations/index.d.ts", "default": "./dist/esm/integrations/index.js" },
-      "require": { "types": "./dist/cjs/integrations/index.d.ts", "default": "./dist/cjs/integrations/index.js" }
+      "import": {
+        "types": "./dist/esm/integrations/index.d.ts",
+        "default": "./dist/esm/integrations/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/integrations/index.d.ts",
+        "default": "./dist/cjs/integrations/index.js"
+      }
     },
     "./openai-agents": {
-      "import": { "types": "./dist/esm/integrations/openai-agents.d.ts", "default": "./dist/esm/integrations/openai-agents.js" },
-      "require": { "types": "./dist/cjs/integrations/openai-agents.d.ts", "default": "./dist/cjs/integrations/openai-agents.js" }
+      "import": {
+        "types": "./dist/esm/integrations/openai-agents.d.ts",
+        "default": "./dist/esm/integrations/openai-agents.js"
+      },
+      "require": {
+        "types": "./dist/cjs/integrations/openai-agents.d.ts",
+        "default": "./dist/cjs/integrations/openai-agents.js"
+      }
     },
     "./langchain": {
-      "import": { "types": "./dist/esm/integrations/langchain.d.ts", "default": "./dist/esm/integrations/langchain.js" },
-      "require": { "types": "./dist/cjs/integrations/langchain.d.ts", "default": "./dist/cjs/integrations/langchain.js" }
+      "import": {
+        "types": "./dist/esm/integrations/langchain.d.ts",
+        "default": "./dist/esm/integrations/langchain.js"
+      },
+      "require": {
+        "types": "./dist/cjs/integrations/langchain.d.ts",
+        "default": "./dist/cjs/integrations/langchain.js"
+      }
     },
     "./ai": {
-      "import": { "types": "./dist/esm/integrations/vercel-ai.d.ts", "default": "./dist/esm/integrations/vercel-ai.js" },
-      "require": { "types": "./dist/cjs/integrations/vercel-ai.d.ts", "default": "./dist/cjs/integrations/vercel-ai.js" }
+      "import": {
+        "types": "./dist/esm/integrations/vercel-ai.d.ts",
+        "default": "./dist/esm/integrations/vercel-ai.js"
+      },
+      "require": {
+        "types": "./dist/cjs/integrations/vercel-ai.d.ts",
+        "default": "./dist/cjs/integrations/vercel-ai.js"
+      }
     },
     "./verify": {
-      "import": { "types": "./dist/esm/verify.d.ts", "default": "./dist/esm/verify.js" },
-      "require": { "types": "./dist/cjs/verify.d.ts", "default": "./dist/cjs/verify.js" }
+      "import": {
+        "types": "./dist/esm/verify.d.ts",
+        "default": "./dist/esm/verify.js"
+      },
+      "require": {
+        "types": "./dist/cjs/verify.d.ts",
+        "default": "./dist/cjs/verify.js"
+      }
     },
     "./testing": {
       "node": {
-        "import": { "types": "./dist/esm/testing.d.ts", "default": "./dist/esm/testing.js" },
-        "require": { "types": "./dist/cjs/testing.d.ts", "default": "./dist/cjs/testing.js" }
+        "import": {
+          "types": "./dist/esm/testing.d.ts",
+          "default": "./dist/esm/testing.js"
+        },
+        "require": {
+          "types": "./dist/cjs/testing.d.ts",
+          "default": "./dist/cjs/testing.js"
+        }
       }
     },
     "./package.json": "./package.json"
   },
   "bin": {
-    "immiscible-fake": "./bin/immiscible-fake.mjs"
+    "immiscible-fake": "./bin/immiscible-fake.mjs",
+    "immiscible-demo": "./bin/immiscible-demo.mjs"
   },
   "files": [
     "dist",
     "src",
     "bin",
-    "README.md"
+    "examples/quickstart.mjs",
+    "README.md",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "node scripts/build.mjs",
@@ -98,6 +143,22 @@
     "langchain",
     "langgraph",
     "vercel-ai",
-    "claude"
+    "claude",
+    "human-in-the-loop",
+    "approval",
+    "spend-limits",
+    "budget",
+    "kill-switch",
+    "audit-log",
+    "ai-safety",
+    "agent-security",
+    "llm",
+    "llm-cost",
+    "mcp-server",
+    "model-context-protocol",
+    "tool-calling",
+    "x402",
+    "agent-payments",
+    "ai-sdk"
   ]
 }

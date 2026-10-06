@@ -1,0 +1,20 @@
+{
+  "name": "immiscible-gemini",
+  "version": "0.1.1",
+  "description": "Ask before AI agents pay, share data or act: allow, deny or ask a person, with signed receipts.",
+  "contextFileName": "GEMINI.md",
+  "settings": [
+    {
+      "name": "Immiscible agent key",
+      "description": "The agent's key (ask_...), from npx immiscible init or the agent's setup page in the console. It can only ask; it cannot approve anything.",
+      "envVar": "IMMISCIBLE_AGENT_KEY",
+      "sensitive": true
+    }
+  ],
+  "mcpServers": {
+    "immiscible": {
+      "httpUrl": "https://immiscible.fly.dev/mcp",
+      "headers": { "Authorization": "Bearer ${IMMISCIBLE_AGENT_KEY}" }
+    }
+  }
+}

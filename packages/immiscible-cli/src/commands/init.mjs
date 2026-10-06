@@ -15,18 +15,21 @@
  *
  * Running it again changes nothing that is already right: the key in .env
  * is reused, .env and the settings are left byte for byte, and the test
- * call carries the same idempotency key, so no second record is made.
+ * call carries the same idempotency key while the agent's rules are
+ * unchanged, so no second record is made. Once a rule changes (a second
+ * owner confirms it), the server makes the test afresh, so init never
+ * prints an old answer as the current one.
  *
  * Non-interactive (CI, an AI coding agent): --yes, with --name and
  * --purpose, or their defaults. --json prints one object.
  */
 
 import path from 'node:path';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { detectProject, defaultAgentName, defaultPurpose, vendorFor } from '../detect.mjs';
 import { readEnvFile, planEnv, writeEnv, envIgnored } from '../dotenv.mjs';
 import { planSettings, installHook, diffLines, compactDiff } from '../claude.mjs';
-import { snippetFor } from '../snippets.mjs';
+import { snippetFor, coversFrom } from '../snippets.mjs';
 import { request, errorFrom } from '../api.mjs';
 import { CliError, EXIT } from '../errors.mjs';
 import { resolveContext } from '../config.mjs';
@@ -96,6 +99,7 @@ export async function init(ctx) {
   let pending = null;
   let created = false;
   let reused = null;
+  let covers = null; // what the agent's rules cover, so the printed code is code they can allow
   const replace = flags.force ? ['IMMISCIBLE_URL'] : [];
   const existing = env0.values.IMMISCIBLE_AGENT_KEY;
   if (existing) {
@@ -106,6 +110,7 @@ export async function init(ctx) {
       workspace = k.info.workspace;
       reused = 'env';
       pending = k.info.pending ?? null;
+      covers = coversFrom(k.info.covers);
       ui.ok(`Using the agent key already in .env: ${c.bold(agent.name)} ${c.dim(`(${workspace.name})`)}`);
       if (pending) ui.warn(pending.message);
     } else {
@@ -152,6 +157,7 @@ export async function init(ctx) {
     key = out.key;
     rules = out.rules ?? [];
     pending = out.pending;
+    covers = coversFrom([...rules, pending?.rule]);
     created = !out.reused;
     reused = out.reused ? 'name' : null;
     if (out.reused) ui.ok(`${c.bold(agent.name)} already exists in ${workspace.name}: issued it a new key`);
@@ -160,6 +166,7 @@ export async function init(ctx) {
     if (pending) {
       if (pending.rule) ui.out(`  ${c.dim('Rule:')} ${pending.rule.description}`);
       ui.warn(pending.message);
+      if (pending.confirmUrl) ui.note(`  Another owner confirms it here: ${pending.confirmUrl}`);
     }
   }
 
@@ -168,9 +175,26 @@ export async function init(ctx) {
   writeEnv(envFile, envPlan);
   if (envPlan.changed) ui.ok(`${envPlan.added.length ? `Added ${envPlan.added.join(' and ')}` : ''}${envPlan.added.length && envPlan.replaced.length ? '; ' : ''}${envPlan.replaced.length ? `replaced ${envPlan.replaced.join(' and ')}` : ''} in .env`);
   else ui.ok('.env already has IMMISCIBLE_URL and IMMISCIBLE_AGENT_KEY');
-  const gitignore = existsSync(path.join(dir, '.gitignore')) ? readFileSync(path.join(dir, '.gitignore'), 'utf8') : null;
-  const ignored = envIgnored(gitignore);
-  if (ignored === false || (ignored === null && existsSync(path.join(dir, '.git')))) ui.warn('.env is not in .gitignore. It holds the agent key: add it before you commit.');
+  // .env holds the agent key, so in a git repository it goes in .gitignore
+  // (created if need be), shown and confirmed like every other change.
+  const gitignoreFile = path.join(dir, '.gitignore');
+  const gitignore = existsSync(gitignoreFile) ? readFileSync(gitignoreFile, 'utf8') : null;
+  let ignored = envIgnored(gitignore);
+  let gitignoreState = ignored ? 'unchanged' : 'skipped';
+  if (ignored === false || (ignored === null && existsSync(path.join(dir, '.git')))) {
+    let go = !flags['no-gitignore'];
+    if (go && !ui.json) ui.out(`${c.bold('.gitignore')}${gitignore == null ? c.dim(' (new file)') : ''} ${c.green('+ .env')}`);
+    if (go && ui.interactive && !flags.yes) go = await ui.confirm('Add .env to .gitignore? It holds the agent key.', { default: true });
+    if (go) {
+      writeFileSync(gitignoreFile, `${gitignore == null || gitignore === '' || gitignore.endsWith('\n') ? gitignore ?? '' : `${gitignore}\n`}.env\n`);
+      ignored = true;
+      gitignoreState = gitignore == null ? 'created' : 'added';
+      ui.ok(gitignore == null ? 'Created .gitignore with .env in it' : 'Added .env to .gitignore');
+    } else {
+      gitignoreState = 'declined';
+      ui.warn('.env is not in .gitignore. It holds the agent key: add it before you commit.');
+    }
+  }
 
   // ------------------------------------------------- Claude Code hook
   let hook = { state: 'skipped', reason: flags['no-hook'] ? '--no-hook' : 'no Claude Code project found (pass --hook to install it anyway)' };
@@ -203,7 +227,7 @@ export async function init(ctx) {
   }
 
   // --------------------------------------------------------- snippet
-  const snippet = snippetFor(project, { hookInstalled: ['added', 'updated', 'unchanged'].includes(hook.state) });
+  const snippet = snippetFor(project, { hookInstalled: ['added', 'updated', 'unchanged'].includes(hook.state), covers });
   if (snippet && !ui.json && snippet.id !== 'claude-code') {
     ui.blank();
     ui.out(`${c.bold(`Add this to your code`)} ${c.dim(`(${snippet.title})`)}`);
@@ -216,7 +240,11 @@ export async function init(ctx) {
   if (!flags['no-test']) {
     test = await ui.spin('Making a live test call', () => testCall(ctx, key));
     ui.blank();
-    if (test.governed) {
+    if (test.governed && pending) {
+      // Connected, but nothing is governed by a rule yet: not a tick.
+      ui.warn(`Waiting for another owner to confirm the rule for ${agent.name} (${workspace.name}). Until then everything it asks for is refused.`);
+      ui.note(`  The connection works: the test ${test.kind === 'payment' ? 'payment' : 'call'} reached Immiscible${test.decision === 'deny' ? ' and was refused, as it should be while the rule waits' : ''}.`);
+    } else if (test.governed) {
       ui.ok(`Governed by Immiscible: ${agent.name} (${workspace.name})`);
       const said = { allow: 'was allowed', deny: 'was refused', approval_required: 'would have gone to a person' }[test.decision];
       ui.note(`  The test ${test.kind === 'payment' ? 'payment' : 'call'} ${said}${test.reasons.length ? `: ${test.reasons.map((x) => x.replace(/\.+$/, '')).join('; ')}` : ''}.${test.decision === 'approval_required' ? ' It was cancelled at once, so nobody has to decide it.' : ''}`);
@@ -228,7 +256,7 @@ export async function init(ctx) {
   const exitCode = test && !test.governed ? EXIT.TEST : pending ? EXIT.PENDING : EXIT.OK;
   if (ui.json) {
     ui.writeJson({
-      ok: exitCode === EXIT.OK || exitCode === EXIT.PENDING,
+      ok: exitCode === EXIT.OK,
       exitCode,
       url: ctx.url,
       workspace,
@@ -238,7 +266,7 @@ export async function init(ctx) {
       rules,
       pending,
       message: pending?.message ?? null,
-      env: { file: envFile, added: envPlan.added, kept: envPlan.kept, replaced: envPlan.replaced, conflicts: envPlan.conflicts, gitignored: ignored },
+      env: { file: envFile, added: envPlan.added, kept: envPlan.kept, replaced: envPlan.replaced, conflicts: envPlan.conflicts, gitignored: ignored, gitignore: gitignoreState },
       hook,
       snippet,
       detected: { languages: project.languages, sdks: project.sdks, primary: project.primary, claudeCode: project.claudeCode, mcp: project.mcp, wallets: project.wallets },

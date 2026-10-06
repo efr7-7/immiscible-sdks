@@ -1,0 +1,16 @@
+{
+  "name": "immiscible",
+  "owner": { "name": "Eóin Forker", "url": "https://immiscible.fly.dev" },
+  "metadata": {
+    "description": "Immiscible for Claude Code: approvals, spend limits and a kill switch for AI agents."
+  },
+  "plugins": [
+    {
+      "name": "immiscible",
+      "source": "./packages/immiscible-claude-code",
+      "description": "A fail-closed hook that asks Immiscible before every Bash command, file edit, web fetch and MCP call; the Immiscible MCP server; and an analyst that explains decisions, approvals and spend.",
+      "category": "security",
+      "homepage": "https://immiscible.fly.dev/docs/answers/claude-code-block-commands"
+    }
+  ]
+}

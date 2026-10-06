@@ -20,13 +20,13 @@ with run.guard(tool_action("deploy", {"service": "api"}, domain="mycompany.com")
 
 `guard` asks, waits for a person if one is asked, runs your block only if allowed, and settles `completed` (or `failed` if it raised). A refusal raises `ImmiscibleDeniedError` with plain-English `reasons`; your block never ran. As a decorator it takes a function that maps the call to an action, and works on `async def` too.
 
-Quickstart: [immiscible.fly.dev/docs/quickstart](https://immiscible.fly.dev/docs/quickstart). SDKs: [immiscible.fly.dev/docs/sdks](https://immiscible.fly.dev/docs/sdks). API: [immiscible.fly.dev/docs/api](https://immiscible.fly.dev/docs/api). JavaScript: [`@immiscible/sdk` on npm](https://www.npmjs.com/package/@immiscible/sdk). MIT licence.
+Set up a project in one command with `npx immiscible init` (it writes `IMMISCIBLE_URL` and `IMMISCIBLE_AGENT_KEY` to `.env`). Quickstart: [immiscible.fly.dev/docs/quickstart](https://immiscible.fly.dev/docs/quickstart). Answers to common questions: [immiscible.fly.dev/docs/answers](https://immiscible.fly.dev/docs/answers). SDKs: [immiscible.fly.dev/docs/sdks](https://immiscible.fly.dev/docs/sdks). API: [immiscible.fly.dev/docs/api](https://immiscible.fly.dev/docs/api). JavaScript: [`@immiscible/sdk` on npm](https://www.npmjs.com/package/@immiscible/sdk). MIT licence.
 
 ## The client
 
 | Call | Does |
 |---|---|
-| `Immiscible(api_key, base_url, timeout=30, max_retries=2, session_id=, traceparent=)` | Defaults from `IMMISCIBLE_AGENT_KEY` and `IMMISCIBLE_URL` (or `ASSAY_AGENT_KEY`, `ASSAY_URL`). |
+| `Immiscible(api_key, base_url, timeout=30, max_retries=2, session_id=, traceparent=)` | Defaults from `IMMISCIBLE_AGENT_KEY` and `IMMISCIBLE_URL` (or `ASSAY_AGENT_KEY`, `ASSAY_URL`), then `https://immiscible.fly.dev`, the hosted service (set `IMMISCIBLE_URL` for your own server). |
 | `immiscible.run(session_id=None, client="custom", traceparent=None)` | A client for a new run. |
 | `authorize(action, idempotency_key=None)` | Ask. Returns a `Decision` (a dict with `.allowed`, `.receipt`, `.reasons`, `.approval_url`, ...). |
 | `wait_for_decision(id, timeout=600, initial_delay=0.5, max_delay=8, factor=1.6, cancel=None, on_poll=None)` | Poll with backoff and jitter. `cancel` is a `threading.Event`. |
@@ -38,6 +38,10 @@ Quickstart: [immiscible.fly.dev/docs/quickstart](https://immiscible.fly.dev/docs
 | `mcp_proxy(upstream_id)` | MCP proxy client: `list_tools`, `call`, `call_with_approval`, `retry_after_approval`. |
 | `gateway.openai()`, `gateway.anthropic()`, `gateway.openai_client()`, `gateway.anthropic_client()`, `gateway.env()` | Model SDKs through the gateway, inside the run. |
 | `context` | The run: `trace_id`, `session_id`, `headers()`, `traceparent()`, `httpx_event_hooks()`, `last_server_traceparent`. |
+
+## Errors
+
+Everything the SDK raises on purpose is an `ImmiscibleError`, with `status`, `type`, `body` and `request_id` (quote it when asking for help). HTTP failures use a subclass by status: `ImmiscibleAuthenticationError` (401), `ImmiscibleInvalidRequestError` (400 or 422, with `errors` per field), `ImmiscibleRateLimitError` (429, with `retry_after` in seconds), `ImmiscibleIdempotencyConflictError` (409, the same key with a different body) and `ImmiscibleConnectionError` (unreachable or timed out). Refusals are `ImmiscibleDeniedError`, `ImmiscibleApprovalRequiredError` and `ImmiscibleApprovalTimeoutError`.
 
 ## Integrations
 

@@ -82,7 +82,7 @@ class Integrations(unittest.TestCase):
         out = asyncio.run(g.on_invoke_tool(FakeToolContext("c4"), json.dumps({"branch": "main"})))
         self.assertIn("waiting for the person to approve", out)
         self.assertEqual(self.last_action()["type"], "tool.call")
-        self.assertTrue(self.last_action()["request"]["summary"].startswith('deploy: {"branch":"main"}'))
+        self.assertEqual(self.last_action()["request"]["summary"], "Run deploy: branch main")
 
     def test_langchain_tool_call_and_direct_args_sync_and_async(self):
         class FakeTool:
@@ -136,7 +136,7 @@ class Integrations(unittest.TestCase):
             return f"found {q}"
 
         self.assertEqual(asyncio.run(lookup("milk")), "found milk")
-        self.assertEqual(self.last_action()["request"]["summary"], 'lookup: {"q":"milk"}')
+        self.assertEqual(self.last_action()["request"]["summary"], "Run lookup: q milk")
 
 
 class RefusalWordingTest(unittest.TestCase):

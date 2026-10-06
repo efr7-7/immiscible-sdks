@@ -53,7 +53,7 @@ test('OpenAI Agents SDK: the default mapping is a tool.call, and the input guard
   const out = await guarded.invoke({}, JSON.stringify({ branch: 'main' }));
   assert.match(out, /waiting for the person to approve/);
   assert.equal(lastAction().type, 'tool.call');
-  assert.match(lastAction().request.summary, /^deploy: \{"branch":"main"\}/);
+  assert.equal(lastAction().request.summary, 'Run deploy: branch main');
 
   const g = openaiToolGuardrail({ client, mapToAction: buyAction });
   const allow = await g.run({ toolCall: { name: 'buy', arguments: JSON.stringify({ pence: 500, domain: 'tesco.com' }), callId: 'c9' } });

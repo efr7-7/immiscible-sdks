@@ -20,8 +20,8 @@ export function clientName() {
  * JSON. Returns { status, ok, json, headers, ms }; never throws for an
  * HTTP status, only for a network failure.
  */
-export async function request(base, path, { method = 'GET', auth = null, body, form, timeoutMs = 15_000, fetchImpl = fetch } = {}) {
-  const headers = { 'user-agent': USER_AGENT, accept: 'application/json' };
+export async function request(base, path, { method = 'GET', auth = null, body, form, timeoutMs = 15_000, fetchImpl = fetch, headers: extra = {} } = {}) {
+  const headers = { 'user-agent': USER_AGENT, accept: 'application/json', ...extra };
   if (auth) headers.authorization = `Bearer ${auth}`;
   let payload;
   if (form) {
