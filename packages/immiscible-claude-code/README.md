@@ -11,7 +11,7 @@ npm install -g @immiscible/claude-code-hook
 ```
 
 ```shell
-export IMMISCIBLE_URL=https://your-immiscible.example
+export IMMISCIBLE_URL=https://immiscible.fly.dev     # or your own server
 export IMMISCIBLE_AGENT_KEY=ask_...
 immiscible-claude-code-hook --print-config     # a PreToolUse entry for .claude/settings.json
 ```

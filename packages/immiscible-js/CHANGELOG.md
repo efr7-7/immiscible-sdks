@@ -1,6 +1,6 @@
 # Changelog: @immiscible/sdk
 
-## 0.1.1 (not yet published)
+## 0.1.1 (6 October 2026)
 
 Added
 

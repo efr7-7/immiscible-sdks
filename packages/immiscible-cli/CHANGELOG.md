@@ -1,6 +1,8 @@
 # Changelog: immiscible (the CLI)
 
-## 0.1.2 (not yet published)
+## Unreleased (to be published as 0.2.0)
+
+0.1.2 was never published; these changes, which are in this repository, ship in 0.2.0 together with two new commands, `immiscible try` and `immiscible verify`, which are not here yet.
 
 Changed
 

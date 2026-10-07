@@ -62,8 +62,8 @@ Setups for each framework: [immiscible.fly.dev/docs/sdks](https://immiscible.fly
 ```python
 from immiscible import fetch_jwks, verify_receipt
 
-jwks = fetch_jwks("https://immiscible.example")                  # pin: fetch once, store with your config
-r = verify_receipt(token, "https://immiscible.example", jwks=jwks, online=True,
+jwks = fetch_jwks("https://immiscible.fly.dev")                 # or your own server; pin: fetch once, store with your config
+r = verify_receipt(token, "https://immiscible.fly.dev", jwks=jwks, online=True,
                    expect={"amount": 6420, "currency": "GBP", "merchant": "ocado.com"})
 ```
 

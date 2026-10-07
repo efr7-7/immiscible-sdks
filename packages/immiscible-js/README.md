@@ -60,8 +60,8 @@ Everything the SDK throws on purpose is an `ImmiscibleError`, with `status`, `ty
 ```ts
 import { verifyReceipt, fetchJwks } from '@immiscible/sdk/verify';
 
-const jwks = await fetchJwks('https://immiscible.example');            // pin: fetch once, store with your config
-const r = await verifyReceipt(token, { jwks, issuer: 'https://immiscible.example', online: true,
+const jwks = await fetchJwks('https://immiscible.fly.dev');           // or your own server; pin: fetch once, store with your config
+const r = await verifyReceipt(token, { jwks, issuer: 'https://immiscible.fly.dev', online: true,
   expect: { amount: 6420, currency: 'GBP', merchant: 'ocado.com' } });
 ```
 
