@@ -16,6 +16,7 @@ export const EXIT = Object.freeze({
   TEST: 9, // init: the live test call did not come back governed
   PENDING: 10, // init: done, and the rule waits for another owner to confirm
   FINDINGS: 11, // check: something high-risk was found
+  INVALID: 12, // verify: the receipt is not valid
 });
 
 export class CliError extends Error {

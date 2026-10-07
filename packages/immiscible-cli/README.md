@@ -6,12 +6,18 @@ The Immiscible developer CLI. One command puts Immiscible in front of the agent 
 npx immiscible init
 ```
 
-Node 22.13 or later. No dependencies. Free for up to 5 people at https://immiscible.fly.dev.
+To see it first, offline and with no account:
 
-This is the 0.1.1 command set. `immiscible try` (see it work offline, with no account) and `immiscible verify` (check a receipt offline) arrive in 0.2.0, which is not yet published.
+```shell
+npx immiscible try
+```
+
+Node 22.13 or later. No dependencies. Free for up to 5 people at https://immiscible.fly.dev.
 
 | Command | Does |
 |---|---|
+| `immiscible try` | A governed agent in under a minute, offline, no account: one action allowed, one held for you to approve at the prompt, one denied; then the receipt, verified. Runs against the SDK's fake on 127.0.0.1. |
+| `immiscible verify <receipt>` | Check a signed receipt offline (`--keys keys.json`, or your server's published keys). Exit 12 when it is not valid. |
 | `immiscible check` | What the agents on this machine can touch: MCP servers and what each can do, Claude Code permissions, provider keys in `.env` and shell config. Runs locally and needs no sign-in; a key is shown only as its prefix, last four characters and a fingerprint. `--upload` sends the findings (never a key) for a report link. Exit 11 when something is high risk. |
 | `immiscible login` | Sign in through your browser (OAuth device code with PKCE). `--token` stores a token you already have. |
 | `immiscible init` | Detect the project, create the agent and its rule, add `IMMISCIBLE_URL` and `IMMISCIBLE_AGENT_KEY` to `.env`, install the Claude Code hook (after showing the diff), print the code for your SDK, make a live test call. Safe to run again. |

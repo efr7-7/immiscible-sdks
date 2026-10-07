@@ -3,7 +3,7 @@
  * become output and an exit code.
  */
 
-import { parseArgs, FLAGS } from './args.mjs';
+import { parseArgs, FLAGS, nearest } from './args.mjs';
 import { makeUi } from './ui.mjs';
 import { makeContext } from './context.mjs';
 import { CliError, EXIT, usage } from './errors.mjs';
@@ -16,16 +16,20 @@ import { status } from './commands/status.mjs';
 import { token } from './commands/token.mjs';
 import { mcp, MCP_CLIENTS } from './commands/mcp.mjs';
 import { check } from './commands/check.mjs';
+import { tryIt } from './commands/try.mjs';
+import { verify } from './commands/verify.mjs';
 
-const COMMANDS = { login, logout, whoami, init, doctor, status, token, mcp, check };
+const COMMANDS = { try: tryIt, verify, login, logout, whoami, init, doctor, status, token, mcp, check };
 
 const HELP = {
-  main: `Immiscible: decisions before your AI agents pay, share data or act.
+  main: `Immiscible: what your company spends on AI, what it could save, and what your agents may do.
 
 Usage
   immiscible <command> [flags]
 
 Commands
+  try       See it work in under a minute, offline, with no account: allowed, held, denied, verified
+  verify    Check a signed receipt offline: immiscible verify receipt.jwt --keys keys.json
   check     What the agents here can touch: MCP servers, Claude Code permissions, keys. Runs locally
   init      Govern the agent in this project: create it, write .env, install the Claude Code hook, test it
   login     Sign in through your browser (device code); --token for CI
@@ -46,9 +50,43 @@ Flags for every command
 
 Exit codes: 0 ok, 1 error, 2 usage, 3 not signed in, 4 input needed, 5 unreachable,
 6 refused, 7 doctor found failures, 8 sign-in denied or expired, 9 test call failed,
-10 waiting for another owner, 11 check found something high-risk.
+10 waiting for another owner, 11 check found something high-risk, 12 receipt not valid.
 
 Docs: https://immiscible.fly.dev/docs/cli (or /docs/cli on your own server)`,
+
+  try: `immiscible try: see a governed agent in under a minute, with no account.
+
+Usage
+  immiscible try [--yes] [--json]
+
+  Starts a test server on this machine (127.0.0.1) with its own signing key, and a
+  made-up finance agent asks it three times: a tool call is allowed, a payment to a
+  new supplier is held for you to approve here, and a payment to a lookalike of a
+  known supplier is denied. Then it saves the receipt and runs immiscible verify on
+  it, offline. The test server imitates a rule; it is not the real policy engine.
+  Nothing leaves the machine, and the server stops when try ends.
+
+Flags
+  -y, --yes   Approve the held payment without asking (needed when not a terminal)
+
+Exit codes: 0 done, 4 not a terminal and no --yes.`,
+
+  verify: `immiscible verify: check a signed receipt, offline.
+
+Usage
+  immiscible verify <receipt.jwt | receipt | -> [--keys <keys.json | url>] [--json]
+
+  Checks the Ed25519 signature, the key id, the type and the expiry, and prints what
+  the receipt says was allowed: the action, the amount and where it went, and whether
+  a person approved it. Needs no account and no agent key.
+
+Flags
+  --keys <file|url>  The issuer's public keys, as served at /.well-known/immiscible-keys.json.
+                     A file means nothing is fetched. Without it, the keys come from your
+                     server (--url, IMMISCIBLE_URL, or the one you signed in to), and the
+                     receipt must have been issued by that server.
+
+Exit codes: 0 valid, 12 not valid (altered, expired, an unknown key or another issuer).`,
 
   check: `immiscible check: what the agents on this machine can touch.
 
@@ -197,9 +235,10 @@ export async function main(argv, { env = process.env, cwd = process.cwd(), stdou
       return EXIT.OK;
     }
     const run = COMMANDS[command];
-    if (!run) throw usage(`unknown command "${command}"`, `Commands: ${Object.keys(COMMANDS).join(', ')}. Run immiscible help.`);
+    if (!run) { const near = nearest(command, Object.keys(COMMANDS)); throw usage(`unknown command "${command}"${near ? `; did you mean ${near}?` : ''}`, near ? `Run immiscible ${near}, or immiscible help for every command.` : `Commands: ${Object.keys(COMMANDS).join(', ')}. Run immiscible help.`); }
     const ctx = makeContext({ flags, ui, env, cwd, fetchImpl });
     ctx.rest = rest;
+    ctx.stdin = stdin;
     return await run(ctx);
   } catch (err) {
     const e = err instanceof CliError ? err : new CliError(err?.message ?? String(err), { exit: EXIT.ERROR, code: 'internal' });

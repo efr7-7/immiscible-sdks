@@ -1,0 +1,8 @@
+{
+  "name": "immiscible-example-node",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@immiscible/sdk": "^0.1.1"
+  }
+}

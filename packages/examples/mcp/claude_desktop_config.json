@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "immiscible": {
+      "command": "node",
+      "args": [
+        "/path/to/immiscible-sdks/packages/immiscible-desktop/server/index.mjs"
+      ],
+      "env": {
+        "IMMISCIBLE_URL": "https://immiscible.fly.dev",
+        "IMMISCIBLE_AGENT_KEY": "ask_your_agent_key"
+      }
+    }
+  }
+}

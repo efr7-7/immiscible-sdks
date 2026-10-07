@@ -26,9 +26,34 @@ export const FLAGS = {
   days: { value: true },
   client: { value: true },
   upload: { value: false },
+  keys: { value: true },
   help: { value: false, short: 'h' },
   version: { value: false, short: 'v' },
 };
+
+/**
+ * The nearest of some names to a mistyped one, within two edits (a swap of
+ * two neighbouring letters is one, as the server's own did-you-mean counts
+ * it), or null: "statsu" is status, "--jsn" is --json.
+ */
+export function nearest(word, names) {
+  const dist = (a, b) => {
+    const d = Array.from({ length: a.length + 1 }, (_, i) => Array.from({ length: b.length + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0)));
+    for (let i = 1; i <= a.length; i++) {
+      for (let j = 1; j <= b.length; j++) {
+        d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+        if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+      }
+    }
+    return d[a.length][b.length];
+  };
+  let best = null;
+  for (const n of names) {
+    const k = dist(String(word).toLowerCase(), n);
+    if (k <= 2 && k * 2 < Math.max(n.length, 3) && (!best || k < best.k)) best = { n, k };
+  }
+  return best?.n ?? null;
+}
 
 const SHORT = Object.fromEntries(Object.entries(FLAGS).filter(([, f]) => f.short).map(([k, f]) => [f.short, k]));
 
@@ -52,7 +77,7 @@ export function parseArgs(argv) {
       continue;
     }
     const spec = FLAGS[name];
-    if (!spec) throw usage(`unknown flag --${name}`);
+    if (!spec) { const near = nearest(name, Object.keys(FLAGS)); throw usage(`unknown flag --${name}${near ? `; did you mean --${near}?` : ''}`); }
     if (spec.value) {
       const v = inline ?? argv[++i];
       if (v === undefined || (inline === undefined && v.startsWith('--'))) throw usage(`--${name} needs a value`);

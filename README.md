@@ -19,11 +19,11 @@ npx immiscible init      # put Immiscible in front of the agent in this project
 
 ## What is published
 
-The published packages are at 0.1.1, released on 6 October 2026. The SDKs here match what was published; the CLI and the hook have unreleased changes since, listed in their CHANGELOGs.
+The CLI is at 0.2.0, released on 7 October 2026; the other packages are at 0.1.1, released on 6 October 2026. The SDKs here match what was published; the standalone hook package has unreleased changes since, listed in its CHANGELOG (the CLI already bundles the current hook).
 
 | Package | What it is | Published | Install |
 |---|---|---|---|
-| [`immiscible`](packages/immiscible-cli) | The developer CLI | npm 0.1.1 | `npx immiscible init` |
+| [`immiscible`](packages/immiscible-cli) | The developer CLI | npm 0.2.0 | `npx immiscible try`, then `npx immiscible init` |
 | [`@immiscible/sdk`](packages/immiscible-js) | TypeScript and JavaScript, with guards for the OpenAI Agents SDK, LangChain, LangGraph and the Vercel AI SDK | npm 0.1.1 | `npm install @immiscible/sdk` |
 | [`immiscible`](packages/immiscible-py) | Python 3.9+, standard library only | PyPI 0.1.1 | `pip install immiscible` |
 | [`@immiscible/claude-code-hook`](packages/immiscible-claude-code) | A fail-closed PreToolUse hook for Claude Code | npm 0.1.1 | installed by `npx immiscible init` |
@@ -34,9 +34,9 @@ The published packages are at 0.1.1, released on 6 October 2026. The SDKs here m
 
 None of the plugins or extensions is listed in a directory or marketplace yet; install them from this repository.
 
-**Coming in CLI 0.2.0, not yet published:** `immiscible try` (a governed agent in under a minute, offline and with no account: one action allowed, one held for you to approve, one denied, then the receipt verified) and `immiscible verify` (check a signed receipt offline). Until 0.2.0 is on npm, `npx immiscible try` does not exist. What it prints today, from the unreleased build: [`try`](docs/screenshots/cli-try.png) and [`verify`](docs/screenshots/cli-verify.png).
+**New in CLI 0.2.0:** `npx immiscible try` (a governed agent in under a minute, offline and with no account: one action allowed, one held for you to approve, one denied, then the receipt verified) and `immiscible verify` (check a signed receipt offline). What they print: [`try`](docs/screenshots/cli-try.png) and [`verify`](docs/screenshots/cli-verify.png).
 
-## The CLI (0.1.1)
+## The CLI (0.2.0)
 
 | Command | Does |
 |---|---|
@@ -50,7 +50,7 @@ None of the plugins or extensions is listed in a directory or marketplace yet; i
 Every command takes `--json` and has its own exit codes, so an AI coding agent can run the setup itself, with a person allowing the sign-in once. Node 22.13 or later; no dependencies.
 
 <p align="center"><img src="docs/screenshots/cli-init.png" alt="immiscible init --hook in a project: the agent and its rule created, sent to a second owner to confirm, .env and .gitignore written, and the Claude Code settings shown as a diff before the hook is installed" width="900"></p>
-<p align="center"><sub><code>init --hook</code> from the current source (0.2.0, unreleased; <code>init</code> is unchanged from 0.1.1) against a local demo server with made-up data. The new rule waits for a second owner, as it would in a real workspace.</sub></p>
+<p align="center"><sub><code>init --hook</code> from CLI 0.2.0 against a local demo server with made-up data. The new rule waits for a second owner, as it would in a real workspace.</sub></p>
 
 ## In code
 

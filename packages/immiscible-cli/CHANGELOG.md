@@ -1,8 +1,14 @@
 # Changelog: immiscible (the CLI)
 
-## Unreleased (to be published as 0.2.0)
+## 0.2.0 (7 October 2026)
 
-0.1.2 was never published; these changes, which are in this repository, ship in 0.2.0 together with two new commands, `immiscible try` and `immiscible verify`, which are not here yet.
+0.1.2 was never published; its changes are in 0.2.0, which adds two commands.
+
+Added
+
+- `immiscible try`: see a governed agent in under a minute, offline and with no account. A made-up finance agent asks the SDK's fake server, started on 127.0.0.1, three times: a tool call is allowed, a payment to a new supplier is held for you to approve at the prompt (`--yes` approves it when there is no terminal), and a payment to a lookalike of a known supplier is denied. It saves the receipt, runs `immiscible verify` on it, says what just happened and ends on `immiscible init`.
+- `immiscible verify <receipt> [--keys <file or url>]`: check a signed receipt offline, with the verifier the SDK ships. Without `--keys` the keys come from your server's `/.well-known/immiscible-keys.json` and the receipt must be that server's. Exit code 12 when a receipt is not valid.
+- The fake and the verifier are copied from `@immiscible/sdk`'s build into `src/vendor` (`npm run sync`), so the CLI still has no dependencies.
 
 Changed
 
@@ -10,6 +16,8 @@ Changed
 - `doctor` reads `IMMISCIBLE_AGENT_KEY` and `IMMISCIBLE_URL` the way the hook does: the environment first, then `.env`. When the two differ it warns and names which one it checked.
 - `doctor` compares the installed hook with the one your server serves at `/downloads/claude-code-hook.mjs`, and warns "the hook is out of date" when they differ, rather than reporting it as fine.
 - `check` ends on a next step that matches what it found: `doctor` in a project the hook already governs, `init` only when something is still open.
+- `--help` opens on spend and savings: "what your company spends on AI, what it could save, and what your agents may do".
+- The package says its next version from the first change after a release, so one version number never names two different codebases; 0.1.1 on npm is the code tagged `cli-v0.1.1`.
 
 Fixed
 

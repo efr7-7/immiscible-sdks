@@ -1,7 +1,7 @@
 {
   "name": "immiscible",
-  "version": "0.1.1",
-  "description": "Approvals, spend limits and a kill switch for AI agents, set up in one command: npx immiscible init. Installs a fail-closed Claude Code hook, prints MCP setup for Claude Code, Cursor and VS Code, and runs non-interactively for AI coding agents (--json, exit codes). Zero dependencies.",
+  "version": "0.2.0",
+  "description": "Approvals, spend limits and a kill switch for AI agents, set up in one command: npx immiscible init. See it first, offline and with no account: npx immiscible try. Installs a fail-closed Claude Code hook, prints MCP setup for Claude Code, Cursor and VS Code, and runs non-interactively for AI coding agents (--json, exit codes). Zero dependencies.",
   "license": "MIT",
   "author": "Eóin Forker",
   "homepage": "https://immiscible.fly.dev",
@@ -31,8 +31,8 @@
     "CHANGELOG.md"
   ],
   "scripts": {
-    "sync": "node scripts/sync-hook.mjs",
-    "prepack": "node scripts/sync-hook.mjs",
+    "sync": "node scripts/sync-hook.mjs && node scripts/sync-vendor.mjs",
+    "prepack": "node scripts/sync-hook.mjs && node scripts/sync-vendor.mjs",
     "test": "node --disable-warning=ExperimentalWarning --test \"test/*.test.mjs\""
   },
   "keywords": [

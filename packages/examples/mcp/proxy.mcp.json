@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "shop": {
+      "type": "http",
+      "url": "https://immiscible.fly.dev/mcp/proxy/mcu_your_upstream_id",
+      "headers": {
+        "Authorization": "Bearer ${IMMISCIBLE_AGENT_KEY}"
+      }
+    }
+  }
+}

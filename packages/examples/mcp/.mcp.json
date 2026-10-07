@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "immiscible": {
+      "type": "http",
+      "url": "https://immiscible.fly.dev/mcp",
+      "headers": {
+        "Authorization": "Bearer ${IMMISCIBLE_AGENT_KEY}"
+      }
+    }
+  }
+}
