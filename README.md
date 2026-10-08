@@ -1,6 +1,6 @@
 # Immiscible SDKs
 
-**Know what every AI agent spends, and decide what it’s allowed to do.**
+**Before an agent does something it can’t take back, a person gets asked.**
 
 [Immiscible](https://immiscible.fly.dev) is governance for the AI agents a company already runs, from any vendor. Before an agent pays, shares personal data or calls a tool, it asks Immiscible, which allows it with a signed receipt, asks a named person, or refuses, against rules your people wrote. This repository holds the open source pieces that connect agents to it: the CLI, the TypeScript and Python SDKs, the Claude Code hook and plugin, and packages for Claude Desktop, ChatGPT and Codex, and the Gemini CLI. Everything here is MIT licensed. The Immiscible server itself is not open source.
 
@@ -73,7 +73,7 @@ For Claude Code directly: `claude mcp add --transport http immiscible https://im
 
 ## The service
 
-These packages talk to an Immiscible server. The hosted one is [immiscible.fly.dev](https://immiscible.fly.dev), in the EU (Frankfurt): free for up to 5 people, with 30 days of Team on us, then Team at £20 a person a month billed yearly; [pricing](https://immiscible.fly.dev/pricing). Self-hosting in your own cloud is offered on the Scale plan. Immiscible holds no security certification; [the security page](https://immiscible.fly.dev/trust) says what is and is not done.
+These packages talk to an Immiscible server. The hosted one is [immiscible.fly.dev](https://immiscible.fly.dev), in the EU (Frankfurt): free for 3 governed agents and up to 5 people, with 30 days of Business on us, then Team at £39 a month billed yearly for 10 agents, with people free; [pricing](https://immiscible.fly.dev/pricing). Self-hosting in your own cloud is offered on the Enterprise plan. Immiscible holds no security certification; [the security page](https://immiscible.fly.dev/trust) says what is and is not done.
 
 ## Working here
 
