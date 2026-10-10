@@ -55,8 +55,19 @@ class Errors(unittest.TestCase):
             client(down).authorize(ACTION)
 
     def test_default_base_url_is_hosted(self):
-        self.assertEqual(DEFAULT_BASE_URL, "https://immiscible.fly.dev")
+        self.assertEqual(DEFAULT_BASE_URL, "https://immiscible.ai")
 
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Retryable(unittest.TestCase):
+    def test_the_server_says_else_rate_limits_outages_and_no_connection(self):
+        from immiscible.errors import ImmiscibleError
+        self.assertFalse(ImmiscibleError("x", status=400, body={"error": {"type": "invalid_request", "retryable": False}}).retryable)
+        self.assertTrue(ImmiscibleError("x", status=503, body={"error": {"retryable": True}}).retryable)
+        self.assertTrue(ImmiscibleError("x", status=429).retryable)
+        self.assertFalse(ImmiscibleError("x", status=403).retryable)
+        self.assertTrue(ImmiscibleError("x", type="network_error").retryable)
+        self.assertFalse(ImmiscibleError("x", type="denied").retryable)

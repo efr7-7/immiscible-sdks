@@ -22,6 +22,16 @@ class ImmiscibleError(Exception):
         self.body = body
         self.traceparent = traceparent
         self.request_id = request_id  # the server's x-request-id: quote it when asking for help
+        # Whether the same request, sent again unchanged, can succeed: the server's error.retryable, or for an
+        # answer without it, True for a rate limit, an overload, an outage or no connection.
+        err = body.get("error") if isinstance(body, dict) else None
+        said = err.get("retryable") if isinstance(err, dict) else None
+        if isinstance(said, bool):
+            self.retryable = said
+        elif status is not None:
+            self.retryable = status in (429, 502, 503, 504)
+        else:
+            self.retryable = type in ("network_error", "connection_error")
 
 
 class ImmiscibleAuthenticationError(ImmiscibleError):

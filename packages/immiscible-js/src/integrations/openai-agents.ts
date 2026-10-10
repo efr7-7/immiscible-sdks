@@ -80,3 +80,7 @@ export function openaiToolGuardrail(opts: IntegrationOptions & { name?: string }
     },
   };
 }
+
+// Human in the loop: answer the SDK's own approval interruptions with Immiscible (approvals.ts).
+export { resolveInterruptions } from './approvals.js';
+export type { InterruptedResultLike, ToolApprovalItemLike, ApprovalAdapterOptions, ResolvedCall } from './approvals.js';

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import hashlib
 import json
 import re
 import threading
@@ -29,7 +30,7 @@ from typing import Any, Callable, Dict, Iterable, Optional, Union
 from . import ed25519
 
 __all__ = ["verify_receipt", "verify_online", "fetch_jwks", "pin_jwks", "VerifyResult", "clear_jwks_cache", "decode_receipt_unverified",
-           "RECEIPT_TYP", "JWKS_PATH", "REASONS"]
+           "cart_digest", "canonical_cart", "RECEIPT_TYP", "JWKS_PATH", "REASONS"]
 
 RECEIPT_TYP = "assay-receipt+jwt"
 JWKS_PATH = "/.well-known/immiscible-keys.json"
@@ -61,6 +62,8 @@ REASONS = {
     "agent_mismatch": "the receipt was issued to a different agent",
     "mandate_mismatch": "the receipt was allowed under a different mandate",
     "human_required": "a person did not approve this specific action",
+    "audience_mismatch": "the receipt was issued for a different party",
+    "cart_mismatch": "the receipt was authorised for a different basket, or names none",
     "replayed": "this receipt has already been used; receipts are single use",
     "revoked": "the receipt was revoked by its owner",
     "rejected_by_issuer": "the issuer rejected this receipt",
@@ -204,6 +207,50 @@ def _resolve_key(kid: str, *, jwks, jwks_url: Optional[str], fetch: Callable[[st
 
 # --------------------------------------------------------------- bindings
 
+def _is_whole(v: Any) -> bool:
+    return isinstance(v, int) and not isinstance(v, bool) and -(2 ** 53) < v < 2 ** 53
+
+
+# JavaScript's String.prototype.trim set, so a line trims to the same bytes here as on the server.
+_JS_WS = "\t\n\v\f\r \u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000\ufeff"
+
+
+def canonical_cart(cart: Iterable[dict], currency: str) -> str:
+    """The canonical bytes of a basket (as text): schema, currency, and each line's sku, url, quantity and unit price, in order.
+
+    The same bytes as the server and the JavaScript SDK: sorted keys, no whitespace, non-ASCII kept as is.
+    """
+    items = []
+    for i, line in enumerate(list(cart or [])):
+        if not isinstance(line, dict):
+            raise TypeError(f"canonical_cart: line {i} must be a dict")
+        sku = line.get("sku").strip(_JS_WS) if isinstance(line.get("sku"), str) else None
+        url = line.get("url").strip(_JS_WS) if isinstance(line.get("url"), str) else None
+        if not sku and not url:
+            raise TypeError(f"canonical_cart: line {i} needs a sku or a url")
+        q, p = line.get("quantity"), line.get("unitPrice", line.get("unit_price"))
+        if not _is_whole(q) or q < 1 or not _is_whole(p) or p < 0:
+            raise TypeError(f"canonical_cart: line {i} needs a whole quantity of 1 or more and a whole unitPrice of 0 or more")
+        item: Dict[str, Any] = {}
+        if sku:
+            item["sku"] = sku
+        if url:
+            item["url"] = url
+        item["quantity"] = q
+        item["unitPrice"] = p
+        items.append(item)
+    if not items:
+        raise TypeError("canonical_cart: the cart must list at least one line")
+    doc = {"schema": "assay.cart.v1", "currency": str(currency or "").upper(), "items": items}
+    return json.dumps(doc, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+
+def cart_digest(cart: Iterable[dict], currency: str) -> str:
+    """SHA-256 of canonical_cart, base64url: what a v2 receipt's crt claim holds for that basket."""
+    raw = hashlib.sha256(canonical_cart(cart, currency).encode("utf-8")).digest()
+    return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+
+
 def _check_expect(claims: dict, expect: Optional[dict]) -> None:
     if not expect:
         return
@@ -224,6 +271,19 @@ def _check_expect(claims: dict, expect: Optional[dict]) -> None:
         raise _Fail("mandate_mismatch")
     if (expect.get("human_approved") is True or expect.get("humanApproved") is True) and claims.get("hum") is not True:
         raise _Fail("human_required")
+    if expect.get("audience") is not None:
+        aud = claims.get("aud")
+        if not isinstance(aud, str) or _domain(aud) != _domain(expect["audience"]):
+            raise _Fail("audience_mismatch", f"{REASONS['audience_mismatch']}: {aud}")
+    want_digest = expect.get("cart_digest", expect.get("cartDigest"))
+    if expect.get("cart") is not None or want_digest is not None:
+        if not isinstance(want_digest, str):
+            try:
+                want_digest = cart_digest(expect["cart"], str(claims.get("cur") or ""))
+            except (TypeError, KeyError, ValueError):  # UnicodeError is a ValueError: a lone surrogate
+                want_digest = None
+        if not want_digest or not isinstance(claims.get("crt"), str) or want_digest != claims["crt"]:
+            raise _Fail("cart_mismatch")
 
 
 def decode_receipt_unverified(token: str) -> Dict[str, dict]:
@@ -316,9 +376,27 @@ def verify_online(token: str, base_url: str, *, expect: Optional[dict] = None, t
     """
     if not base_url:
         raise TypeError("verify_online: pass base_url (the Immiscible URL you trust)")
+    # What the issuer can check before it marks the receipt used: a receipt for another
+    # basket, party, merchant or a smaller amount is refused there and stays unused.
+    # Everything is checked again here, exactly, afterwards.
+    server_expect: Dict[str, Any] = {}
+    e = expect or {}
+    if e.get("amount") is not None:
+        server_expect["amount"] = e["amount"]
+    if e.get("currency") is not None:
+        server_expect["currency"] = str(e["currency"]).upper()
+    if isinstance(e.get("merchant"), str):
+        server_expect["merchant"] = e["merchant"]
+    if e.get("audience") is not None:
+        server_expect["audience"] = e["audience"]
+    if e.get("cart_digest", e.get("cartDigest")) is not None:
+        server_expect["cartDigest"] = e.get("cart_digest", e.get("cartDigest"))
+    elif e.get("cart") is not None:
+        server_expect["cart"] = e["cart"]
+    payload = {"receipt": token, "expect": server_expect} if server_expect else {"receipt": token}
     req = urllib.request.Request(
         base_url.rstrip("/") + "/v1/verify",
-        data=json.dumps({"receipt": token}).encode("utf-8"),
+        data=json.dumps(payload).encode("utf-8"),
         method="POST",
         headers={"content-type": "application/json", "accept": "application/json"},
     )
@@ -337,7 +415,8 @@ def verify_online(token: str, base_url: str, *, expect: Optional[dict] = None, t
     if body.get("replayed"):
         return VerifyResult(False, "replayed", body.get("reason") or REASONS["replayed"], claims=body.get("claims"), replayed=True)
     if not body["valid"]:
-        reason = "expired" if body.get("expired") else "revoked" if body.get("revoked") else "rejected_by_issuer"
+        codes = [c for c in (body.get("codes") or []) if c in REASONS]
+        reason = "expired" if body.get("expired") else "revoked" if body.get("revoked") else codes[0] if codes else "rejected_by_issuer"
         return VerifyResult(False, reason, body.get("reason") or REASONS[reason])
     claims = body.get("claims") or {}
     try:

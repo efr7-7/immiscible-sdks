@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+Added
+
+- `--self-test`: the hook builds a sample request, sends nothing, and prints one JSON line (`ok`, the Node version, whether `IMMISCIBLE_AGENT_KEY` is set). `immiscible install claude-code` runs it after copying the hook.
+
 Changed
 
 - The hook sends the project the call runs in (Claude Code's `CLAUDE_PROJECT_DIR`, or the working directory) and the working directory, so the default rules can let a coding agent past its intern stage edit and test inside its project without asking. Anything that names a path outside it still asks a person. The CLI bundles this hook from 0.2.0.

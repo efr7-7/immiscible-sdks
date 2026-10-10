@@ -43,3 +43,7 @@ export function guardLangChainTool<T extends LangChainToolLike>(tool: T, opts: I
 export function guardLangChainTools<T extends LangChainToolLike>(tools: T[], opts: IntegrationOptions = {}): T[] {
   return tools.map((t) => guardLangChainTool(t, opts));
 }
+
+// Human in the loop: the HumanInTheLoopMiddleware's decisions, from Immiscible (approvals.ts).
+export { hitlDecisions } from './approvals.js';
+export type { HitlRequestLike, ApprovalAdapterOptions, ResolvedCall } from './approvals.js';

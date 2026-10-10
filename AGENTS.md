@@ -27,7 +27,7 @@ npx immiscible mcp --client <claude-code|cursor|vscode|windsurf|codex|gemini|con
 
 Exit codes: `3` not signed in, `4` a flag is needed (the error names it), `10` the rule waits for another owner. Never paste an agent key into chat or commit `.env`.
 
-Docs for models: https://immiscible.fly.dev/llms.txt. Answers to common questions: https://immiscible.fly.dev/docs/answers.
+Docs for models: https://immiscible.ai/llms.txt. Answers to common questions: https://immiscible.ai/docs/answers.
 
 ## Working in this repository
 

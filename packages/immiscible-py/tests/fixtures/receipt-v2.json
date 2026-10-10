@@ -1,0 +1,175 @@
+{
+  "about": "Shared by the server, JS and Python tests for receipt v2 (decision binding). The receipt is signed by a key made for this file and thrown away; only its public half is here.",
+  "carts": [
+    {
+      "name": "two lines, a sku and a url",
+      "currency": "GBP",
+      "cart": [
+        {
+          "sku": "PAPER-A4-500",
+          "quantity": 4,
+          "unitPrice": 899,
+          "name": "A4 paper"
+        },
+        {
+          "url": "https://shop.stationer.example/p/stapler",
+          "quantity": 1,
+          "unitPrice": 1404
+        }
+      ],
+      "canonical": "{\"currency\":\"GBP\",\"items\":[{\"quantity\":4,\"sku\":\"PAPER-A4-500\",\"unitPrice\":899},{\"quantity\":1,\"unitPrice\":1404,\"url\":\"https://shop.stationer.example/p/stapler\"}],\"schema\":\"assay.cart.v1\"}",
+      "digest": "KtBRJQIbr9V6ymu65c0UZjg7Ij-Bau4gj0bC1eAFH1Y"
+    },
+    {
+      "name": "non-ASCII text, both keys on one line",
+      "currency": "eur",
+      "cart": [
+        {
+          "sku": "CAFÉ-Ø-1",
+          "url": "https://café.example/p/1?size=m&x=1",
+          "quantity": 3,
+          "unitPrice": 0
+        }
+      ],
+      "canonical": "{\"currency\":\"EUR\",\"items\":[{\"quantity\":3,\"sku\":\"CAFÉ-Ø-1\",\"unitPrice\":0,\"url\":\"https://café.example/p/1?size=m&x=1\"}],\"schema\":\"assay.cart.v1\"}",
+      "digest": "El6y_xr0wyad_Fd6RToN9dNQxIq7xGMKtpQM_xiPjy0"
+    },
+    {
+      "name": "one line",
+      "currency": "USD",
+      "cart": [
+        {
+          "sku": "X",
+          "quantity": 1,
+          "unitPrice": 123456789
+        }
+      ],
+      "canonical": "{\"currency\":\"USD\",\"items\":[{\"quantity\":1,\"sku\":\"X\",\"unitPrice\":123456789}],\"schema\":\"assay.cart.v1\"}",
+      "digest": "NSkzEmCSAitXYaRiIcB8oDcnKc3_QA7RxOoAO2zR3mM"
+    }
+  ],
+  "receipt": {
+    "token": "eyJhbGciOiJFZERTQSIsInR5cCI6ImFzc2F5LXJlY2VpcHQrand0Iiwia2lkIjoiZml4dHVyZS0xIn0.eyJpc3MiOiJodHRwczovL2ltbWlzY2libGUuZXhhbXBsZSIsInN1YiI6ImFndF9maXh0dXJlIiwiYWN0IjoiYWN0X2ZpeHR1cmUiLCJ0eXAiOiJwYXltZW50IiwiYW10Ijo1MDAwLCJjdXIiOiJHQlAiLCJtZXIiOiJzaG9wLnN0YXRpb25lci5leGFtcGxlIiwibWR0IjoibWR0X2ZpeHR1cmUiLCJodW0iOmZhbHNlLCJpYXQiOjE3OTEwMDAwMDAsImV4cCI6NDEwMjQ0NDgwMCwianRpIjoiZml4dHVyZS1qdGkiLCJ2ZXIiOjIsImF1ZCI6InNob3Auc3RhdGlvbmVyLmV4YW1wbGUiLCJjcnQiOiJLdEJSSlFJYnI5VjZ5bXU2NWMwVVpqZzdJai1CYXU0Z2owYkMxZUFGSDFZIiwibWRoIjoibUgwbE1FRGw3b0dxck42eHFONG1WcXZSVXg0bDBSMC0xSDVTOWdxMHg2QSIsInBydiI6eyJkZWNsYXJlZCI6WyJ1c2VyIl0sIm9ic2VydmVkIjpbXSwibWlzbWF0Y2giOmZhbHNlfSwidG50IjpmYWxzZX0.UOEbxPeR5h-V2XsYgRywwSkv3d35_wMs2bc_VXFnA-lQbpV4XH6N5oO-2BKfSjAaDUrW_gTQqHhPYTvRpCmjAw",
+    "jwks": {
+      "keys": [
+        {
+          "crv": "Ed25519",
+          "x": "-88olZ8rfsTYhsn_eZjy0SILz560-y6r182vOIchEUg",
+          "kty": "OKP",
+          "kid": "fixture-1",
+          "alg": "EdDSA",
+          "use": "sig"
+        }
+      ]
+    },
+    "issuer": "https://immiscible.example",
+    "claims": {
+      "iss": "https://immiscible.example",
+      "sub": "agt_fixture",
+      "act": "act_fixture",
+      "typ": "payment",
+      "amt": 5000,
+      "cur": "GBP",
+      "mer": "shop.stationer.example",
+      "mdt": "mdt_fixture",
+      "hum": false,
+      "iat": 1791000000,
+      "exp": 4102444800,
+      "jti": "fixture-jti",
+      "ver": 2,
+      "aud": "shop.stationer.example",
+      "crt": "KtBRJQIbr9V6ymu65c0UZjg7Ij-Bau4gj0bC1eAFH1Y",
+      "mdh": "mH0lMEDl7oGqrN6xqN4mVqvRUx4l0R0-1H5S9gq0x6A",
+      "prv": {
+        "declared": [
+          "user"
+        ],
+        "observed": [],
+        "mismatch": false
+      },
+      "tnt": false
+    },
+    "cart": [
+      {
+        "sku": "PAPER-A4-500",
+        "quantity": 4,
+        "unitPrice": 899,
+        "name": "A4 paper"
+      },
+      {
+        "url": "https://shop.stationer.example/p/stapler",
+        "quantity": 1,
+        "unitPrice": 1404
+      }
+    ],
+    "checks": [
+      {
+        "expect": {
+          "cart": [
+            {
+              "sku": "PAPER-A4-500",
+              "quantity": 4,
+              "unitPrice": 899,
+              "name": "A4 paper"
+            },
+            {
+              "url": "https://shop.stationer.example/p/stapler",
+              "quantity": 1,
+              "unitPrice": 1404
+            }
+          ],
+          "audience": "shop.stationer.example",
+          "merchant": "shop.stationer.example",
+          "amount": 5000,
+          "currency": "GBP"
+        },
+        "valid": true
+      },
+      {
+        "expect": {
+          "cart": [
+            {
+              "sku": "PAPER-A4-500",
+              "quantity": 5,
+              "unitPrice": 899
+            },
+            {
+              "url": "https://shop.stationer.example/p/stapler",
+              "quantity": 1,
+              "unitPrice": 505
+            }
+          ]
+        },
+        "valid": false,
+        "reason": "cart_mismatch"
+      },
+      {
+        "expect": {
+          "cartDigest": "KtBRJQIbr9V6ymu65c0UZjg7Ij-Bau4gj0bC1eAFH1Y"
+        },
+        "valid": true
+      },
+      {
+        "expect": {
+          "cartDigest": "NSkzEmCSAitXYaRiIcB8oDcnKc3_QA7RxOoAO2zR3mM"
+        },
+        "valid": false,
+        "reason": "cart_mismatch"
+      },
+      {
+        "expect": {
+          "audience": "checkout.other.example"
+        },
+        "valid": false,
+        "reason": "audience_mismatch"
+      },
+      {
+        "expect": {
+          "merchant": "other.example"
+        },
+        "valid": false,
+        "reason": "merchant_mismatch"
+      }
+    ]
+  }
+}

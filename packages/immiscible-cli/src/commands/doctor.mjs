@@ -81,6 +81,7 @@ export async function doctor(ctx) {
 
   // ------------------------------------------------------- sign-in
   if (!reachable) add('auth', 'Signed in', 'skip', 'the server could not be reached');
+  else if (!ctx.token && ctx.tokenWithheld) add('auth', 'Signed in', 'warn', `${ctx.tokenWithheld} is not sent to ${ctx.url}, which only this project's .env names`, 'Set IMMISCIBLE_URL or pass --url with your server, and the token is used.', 'login');
   else if (!ctx.token) add('auth', 'Signed in', 'warn', 'not signed in (only needed to add agents and for status)', 'Run immiscible login.', 'login');
   else {
     const r = await request(ctx.url, '/v1/cli/whoami', { auth: ctx.token, fetchImpl: ctx.fetchImpl });

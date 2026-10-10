@@ -2,7 +2,7 @@
 
 **Before an agent does something it can’t take back, a person gets asked.**
 
-[Immiscible](https://immiscible.fly.dev) is governance for the AI agents a company already runs, from any vendor. Before an agent pays, shares personal data or calls a tool, it asks Immiscible, which allows it with a signed receipt, asks a named person, or refuses, against rules your people wrote. This repository holds the open source pieces that connect agents to it: the CLI, the TypeScript and Python SDKs, the Claude Code hook and plugin, and packages for Claude Desktop, ChatGPT and Codex, and the Gemini CLI. Everything here is MIT licensed. The Immiscible server itself is not open source.
+[Immiscible](https://immiscible.ai) is governance for the AI agents a company already runs, from any vendor. Before an agent pays, shares personal data or calls a tool, it asks Immiscible, which allows it with a signed receipt, asks a named person, or refuses, against rules your people wrote. This repository holds the open source pieces that connect agents to it: the CLI, the TypeScript and Python SDKs, the Claude Code hook and plugin, and packages for Claude Desktop, ChatGPT and Codex, and the Gemini CLI. Everything here is MIT licensed. The Immiscible server itself is not open source.
 
 [![immiscible on npm](https://img.shields.io/npm/v/immiscible?label=npx%20immiscible&color=1E2F6E)](https://www.npmjs.com/package/immiscible)
 [![@immiscible/sdk on npm](https://img.shields.io/npm/v/@immiscible/sdk?label=%40immiscible%2Fsdk&color=1E2F6E)](https://www.npmjs.com/package/@immiscible/sdk)
@@ -29,10 +29,18 @@ The CLI is at 0.2.0, released on 7 October 2026; the other packages are at 0.1.1
 | [`@immiscible/claude-code-hook`](packages/immiscible-claude-code) | A fail-closed PreToolUse hook for Claude Code | npm 0.1.1 | installed by `npx immiscible init` |
 | [Claude Code plugin](packages/immiscible-claude-code) | The hook, the MCP server, the `ask-before-acting` skill and the `immiscible-analyst` subagent, which reads and never acts | from this repository | `/plugin marketplace add efr7-7/immiscible-sdks`, then `/plugin install immiscible@immiscible` |
 | [Claude Desktop extension](packages/immiscible-desktop) | An MCP Bundle with a dependency-free local bridge | not published | `npm run pack` in the folder, then open `dist/immiscible.mcpb` and paste the agent key |
-| [ChatGPT and Codex plugin](packages/immiscible-openai) | The MCP server with OAuth, and the `ask-before-acting` skill | not published | a plugin folder; or `codex mcp add immiscible --url https://immiscible.fly.dev/mcp --bearer-token-env-var IMMISCIBLE_AGENT_KEY` |
+| [ChatGPT and Codex plugin](packages/immiscible-openai) | The MCP server with OAuth, and the `ask-before-acting` skill | not published | a plugin folder; or `codex mcp add immiscible --url https://immiscible.ai/mcp --bearer-token-env-var IMMISCIBLE_AGENT_KEY` |
 | [Gemini CLI extension](packages/immiscible-gemini) | The MCP server and the same instructions as context | not published | `gemini extensions install ./packages/immiscible-gemini` from a clone |
 
 None of the plugins or extensions is listed in a directory or marketplace yet; install them from this repository.
+
+**Coming in CLI 0.3.0 (in this repository, not yet on npm): your coding agents.** `immiscible scan` shows what Claude Code, Codex and Gemini CLI did on your machine this week, locally and with no account. `immiscible guard` puts one fail-closed check in front of Claude Code, Codex, Cursor, Windsurf, Gemini CLI, Factory Droid, opencode and Amp, with `undo` for what an agent deletes. `scan --ci` fails a build on any hook or MCP server a repository adds without review, and runs as a GitHub Action straight from this repository:
+
+```yaml
+- uses: efr7-7/immiscible-sdks/packages/immiscible-cli@main
+```
+
+`scan --share` and `guard --team` give a team every machine and one set of signed rules. Until 0.3.0 is on npm, run it from a clone: `node packages/immiscible-cli/bin/immiscible.mjs scan`.
 
 **New in CLI 0.2.0:** `npx immiscible try` (a governed agent in under a minute, offline and with no account: one action allowed, one held for you to approve, one denied, then the receipt verified) and `immiscible verify` (check a signed receipt offline). What they print: [`try`](docs/screenshots/cli-try.png) and [`verify`](docs/screenshots/cli-verify.png).
 
@@ -63,17 +71,17 @@ await run.guard(toolAction('deploy', { service: 'api' }, { summary: 'Deploy the 
 
 `guard` asks, waits for a person if one is asked, runs your code only if allowed, and reports the outcome. A refusal throws with the reasons. If Immiscible cannot be reached, it fails closed.
 
-**Enforced or a check.** The Claude Code hook is enforced: Claude Code runs it, not the model, and a failure blocks the call. `guard` in your own code is a check: your agent asks because your code does. For paths an agent cannot route around, the hosted service also offers an MCP proxy that holds the tool’s credential and a model gateway that checks the budget before each call ([the docs](https://immiscible.fly.dev/docs/concepts)).
+**Enforced or a check.** The Claude Code hook is enforced: Claude Code runs it, not the model, and a failure blocks the call. `guard` in your own code is a check: your agent asks because your code does. For paths an agent cannot route around, the hosted service also offers an MCP proxy that holds the tool’s credential and a model gateway that checks the budget before each call ([the docs](https://immiscible.ai/docs/concepts)).
 
 ## Ask Immiscible
 
-Ask about your AI spend from Claude, ChatGPT or Cursor: add `https://immiscible.fly.dev/mcp` as a connector and ask what you spent, what is being wasted and which keys nobody is watching. It answers from your own bills. Anything that would change something, such as a budget or switching a key off, waits for a person.
+Ask about your AI spend from Claude, ChatGPT or Cursor: add `https://immiscible.ai/mcp` as a connector and ask what you spent, what is being wasted and which keys nobody is watching. It answers from your own bills. Anything that would change something, such as a budget or switching a key off, waits for a person.
 
-For Claude Code directly: `claude mcp add --transport http immiscible https://immiscible.fly.dev/mcp --header "Authorization: Bearer $IMMISCIBLE_AGENT_KEY"`.
+For Claude Code directly: `claude mcp add --transport http immiscible https://immiscible.ai/mcp --header "Authorization: Bearer $IMMISCIBLE_AGENT_KEY"`.
 
 ## The service
 
-These packages talk to an Immiscible server. The hosted one is [immiscible.fly.dev](https://immiscible.fly.dev), in the EU (Frankfurt): free for 3 governed agents and up to 5 people, with 30 days of Business on us, then Team at £39 a month billed yearly for 10 agents, with people free; [pricing](https://immiscible.fly.dev/pricing). Self-hosting in your own cloud is offered on the Enterprise plan. Immiscible holds no security certification; [the security page](https://immiscible.fly.dev/trust) says what is and is not done.
+These packages talk to an Immiscible server. The hosted one is [immiscible.ai](https://immiscible.ai), in the EU (Frankfurt): free for 3 governed agents and up to 5 people, with 30 days of Business on us, then Team at £39 a month billed yearly for 10 agents, with people free; [pricing](https://immiscible.ai/pricing). Self-hosting in your own cloud is offered on the Enterprise plan. Immiscible holds no security certification; [the security page](https://immiscible.ai/trust) says what is and is not done.
 
 ## Working here
 
@@ -81,6 +89,6 @@ Each package has its own tests: `npm test` in `packages/immiscible-js`, `package
 
 ## Links
 
-Docs: [immiscible.fly.dev/docs](https://immiscible.fly.dev/docs). The CLI: [/docs/cli](https://immiscible.fly.dev/docs/cli). The free AI check: [/check](https://immiscible.fly.dev/check). For AI agents: [/docs/ai-agents](https://immiscible.fly.dev/docs/ai-agents) and [llms.txt](https://immiscible.fly.dev/llms.txt).
+Docs: [immiscible.ai/docs](https://immiscible.ai/docs). The CLI: [/docs/cli](https://immiscible.ai/docs/cli). The free AI check: [/check](https://immiscible.ai/check). For AI agents: [/docs/ai-agents](https://immiscible.ai/docs/ai-agents) and [llms.txt](https://immiscible.ai/llms.txt).
 
 MIT licence for everything here. The names of other products are used only to say what works with what; none of those companies endorses or partners with Immiscible.

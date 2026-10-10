@@ -20,13 +20,13 @@ with run.guard(tool_action("deploy", {"service": "api"}, domain="mycompany.com")
 
 `guard` asks, waits for a person if one is asked, runs your block only if allowed, and settles `completed` (or `failed` if it raised). A refusal raises `ImmiscibleDeniedError` with plain-English `reasons`; your block never ran. As a decorator it takes a function that maps the call to an action, and works on `async def` too.
 
-Set up a project in one command with `npx immiscible init` (it writes `IMMISCIBLE_URL` and `IMMISCIBLE_AGENT_KEY` to `.env`). Quickstart: [immiscible.fly.dev/docs/quickstart](https://immiscible.fly.dev/docs/quickstart). Answers to common questions: [immiscible.fly.dev/docs/answers](https://immiscible.fly.dev/docs/answers). SDKs: [immiscible.fly.dev/docs/sdks](https://immiscible.fly.dev/docs/sdks). API: [immiscible.fly.dev/docs/api](https://immiscible.fly.dev/docs/api). JavaScript: [`@immiscible/sdk` on npm](https://www.npmjs.com/package/@immiscible/sdk). MIT licence.
+Set up a project in one command with `npx immiscible init` (it writes `IMMISCIBLE_URL` and `IMMISCIBLE_AGENT_KEY` to `.env`). Quickstart: [immiscible.ai/docs/quickstart](https://immiscible.ai/docs/quickstart). Answers to common questions: [immiscible.ai/docs/answers](https://immiscible.ai/docs/answers). SDKs: [immiscible.ai/docs/sdks](https://immiscible.ai/docs/sdks). API: [immiscible.ai/docs/api](https://immiscible.ai/docs/api). JavaScript: [`@immiscible/sdk` on npm](https://www.npmjs.com/package/@immiscible/sdk). MIT licence.
 
 ## The client
 
 | Call | Does |
 |---|---|
-| `Immiscible(api_key, base_url, timeout=30, max_retries=2, session_id=, traceparent=)` | Defaults from `IMMISCIBLE_AGENT_KEY` and `IMMISCIBLE_URL` (or `ASSAY_AGENT_KEY`, `ASSAY_URL`), then `https://immiscible.fly.dev`, the hosted service (set `IMMISCIBLE_URL` for your own server). |
+| `Immiscible(api_key, base_url, timeout=30, max_retries=2, session_id=, traceparent=)` | Defaults from `IMMISCIBLE_AGENT_KEY` and `IMMISCIBLE_URL` (or `ASSAY_AGENT_KEY`, `ASSAY_URL`), then `https://immiscible.ai`, the hosted service (set `IMMISCIBLE_URL` for your own server). |
 | `immiscible.run(session_id=None, client="custom", traceparent=None)` | A client for a new run. |
 | `authorize(action, idempotency_key=None)` | Ask. Returns a `Decision` (a dict with `.allowed`, `.receipt`, `.reasons`, `.approval_url`, ...). |
 | `wait_for_decision(id, timeout=600, initial_delay=0.5, max_delay=8, factor=1.6, cancel=None, on_poll=None)` | Poll with backoff and jitter. `cancel` is a `threading.Event`. |
@@ -55,15 +55,15 @@ from immiscible.integrations import guard_tools, guard_langchain_tools, guarded
 | `guard_langchain_tools(tools, client=, map_to_action=)` | LangChain tools, for `ToolNode`, `bind_tools`, `create_react_agent` |
 | `@guarded(map_to_action, client=)` | any function a framework turns into a tool; signature and docstring kept |
 
-Setups for each framework: [immiscible.fly.dev/docs/sdks](https://immiscible.fly.dev/docs/sdks).
+Setups for each framework: [immiscible.ai/docs/sdks](https://immiscible.ai/docs/sdks).
 
 ## Receipts
 
 ```python
 from immiscible import fetch_jwks, verify_receipt
 
-jwks = fetch_jwks("https://immiscible.fly.dev")                 # or your own server; pin: fetch once, store with your config
-r = verify_receipt(token, "https://immiscible.fly.dev", jwks=jwks, online=True,
+jwks = fetch_jwks("https://immiscible.ai")                 # or your own server; pin: fetch once, store with your config
+r = verify_receipt(token, "https://immiscible.ai", jwks=jwks, online=True,
                    expect={"amount": 6420, "currency": "GBP", "merchant": "ocado.com"})
 ```
 
@@ -90,4 +90,4 @@ decide_then_sign(Immiscible(), {"asset": "USDC", "network": "base", "amount": "1
 status, headers, body = x402_request(Immiscible(), "https://api.example.com/report", pay=my_x402_signer)
 ```
 
-Amounts are decimal strings, never floats. See [crypto payments](https://immiscible.fly.dev/docs/guides/crypto-payments) and [x402](https://immiscible.fly.dev/docs/guides/x402).
+Amounts are decimal strings, never floats. See [crypto payments](https://immiscible.ai/docs/guides/crypto-payments) and [x402](https://immiscible.ai/docs/guides/x402).

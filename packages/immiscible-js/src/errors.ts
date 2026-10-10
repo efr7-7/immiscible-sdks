@@ -33,6 +33,12 @@ export class ImmiscibleError extends Error {
   traceparent: string | null;
   /** The server's x-request-id: quote it when asking for help with a request. */
   requestId: string | null;
+  /**
+   * Whether the same request, sent again unchanged, can succeed: the server's `error.retryable`, or for an
+   * answer without it, true for a rate limit, an overload, an outage or no connection. Retry with the same
+   * idempotency key, so an action is never done twice.
+   */
+  retryable: boolean;
 
   constructor(message: string, info: ImmiscibleErrorInfo = {}) {
     super(message, info.cause === undefined ? undefined : { cause: info.cause });
@@ -42,6 +48,8 @@ export class ImmiscibleError extends Error {
     this.body = info.body ?? null;
     this.traceparent = info.traceparent ?? null;
     this.requestId = info.requestId ?? null;
+    const said = (info.body as any)?.error?.retryable;
+    this.retryable = typeof said === 'boolean' ? said : this.status != null ? [429, 502, 503, 504].includes(this.status) : this.type === 'network_error' || this.type === 'connection_error';
   }
 }
 

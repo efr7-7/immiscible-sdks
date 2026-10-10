@@ -4,7 +4,7 @@
   "description": "Block or approve Claude Code tool calls by rule: a PreToolUse hook that asks Immiscible before every Bash command, file edit, web fetch and MCP call. Allow, deny, or ask a person; fails closed. One file, no dependencies.",
   "license": "MIT",
   "author": "Eóin Forker",
-  "homepage": "https://immiscible.fly.dev",
+  "homepage": "https://immiscible.ai",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/efr7-7/immiscible-sdks.git",

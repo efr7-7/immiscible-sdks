@@ -125,7 +125,7 @@ export async function init(ctx) {
   if (!key) {
     let token = ctx.token;
     if (!token) {
-      if (!ui.interactive) ctx.requireToken();
+      if (!ui.interactive || ctx.tokenWithheld) ctx.requireToken();
       ui.out('You are not signed in. Signing in first.');
       await login(ctx);
       token = resolveContext({ flags: { ...flags, url: ctx.url }, env: ctx.env, dir }).token;

@@ -32,12 +32,12 @@ classifiers = [
 # The licence is the SPDX expression above (PEP 639); a licence classifier alongside it is an error in setuptools 77+.
 
 [project.urls]
-Homepage = "https://immiscible.fly.dev"
-Documentation = "https://immiscible.fly.dev/docs/sdks"
+Homepage = "https://immiscible.ai"
+Documentation = "https://immiscible.ai/docs/sdks"
 Source = "https://github.com/efr7-7/immiscible-sdks/tree/main/packages/immiscible-py"
 Issues = "https://github.com/efr7-7/immiscible-sdks/issues"
-Changelog = "https://immiscible.fly.dev/docs/changelog"
-"Answers" = "https://immiscible.fly.dev/docs/answers"
+Changelog = "https://immiscible.ai/docs/changelog"
+"Answers" = "https://immiscible.ai/docs/answers"
 
 [project.optional-dependencies]
 # Nothing here is needed by the SDK itself; these are the frameworks the integrations are tested against.

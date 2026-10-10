@@ -22,8 +22,8 @@ from .trace import (
     new_span_id, new_trace_id, parse_traceparent,
 )
 from .verify import (
-    JWKS_PATH, REASONS, RECEIPT_TYP, VerifyResult, clear_jwks_cache, decode_receipt_unverified, fetch_jwks, pin_jwks,
-    verify_online, verify_receipt,
+    JWKS_PATH, REASONS, RECEIPT_TYP, VerifyResult, canonical_cart, cart_digest, clear_jwks_cache, decode_receipt_unverified,
+    fetch_jwks, pin_jwks, verify_online, verify_receipt,
 )
 
 __version__ = SDK_VERSION
@@ -36,5 +36,5 @@ __all__ = [
     "RunContext", "parse_traceparent", "format_traceparent", "new_trace_id", "new_span_id", "is_valid_session_id",
     "SESSION_HEADER", "ISSUED_SESSION_HEADER", "TRACEPARENT_HEADER",
     "verify_receipt", "verify_online", "fetch_jwks", "pin_jwks", "VerifyResult", "clear_jwks_cache", "decode_receipt_unverified",
-    "RECEIPT_TYP", "JWKS_PATH", "REASONS",
+    "cart_digest", "canonical_cart", "RECEIPT_TYP", "JWKS_PATH", "REASONS",
 ]

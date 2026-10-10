@@ -138,7 +138,12 @@ test('config: the server comes from the flag, the environment, .env, the file, t
   assert.equal(resolveContext({ env: { ...env, IMMISCIBLE_URL: 'https://env.example' }, dir }).url, 'https://env.example');
   assert.equal(resolveContext({ flags: { url: 'http://localhost:8787' }, env, dir }).urlFrom, '--url');
   assert.equal(normaliseUrl('ftp://x'), null);
-  assert.equal(resolveContext({ env: { ...env, IMMISCIBLE_TOKEN: 'imc_x' }, dir }).tokenFrom, 'IMMISCIBLE_TOKEN');
+  // A token from the environment or the flag never goes to a server only the project's .env names.
+  const fromDotenv = resolveContext({ env: { ...env, IMMISCIBLE_TOKEN: 'imc_x' }, dir });
+  assert.deepEqual([fromDotenv.token, fromDotenv.withheld], [null, 'IMMISCIBLE_TOKEN']);
+  assert.equal(resolveContext({ flags: { token: 'imc_y' }, env, dir }).withheld, '--token');
+  assert.equal(resolveContext({ env: { ...env, IMMISCIBLE_TOKEN: 'imc_x', IMMISCIBLE_URL: 'https://dotenv.example' }, dir }).tokenFrom, 'IMMISCIBLE_TOKEN');
+  assert.equal(resolveContext({ flags: { url: 'https://dotenv.example' }, env: { ...env, IMMISCIBLE_TOKEN: 'imc_x' }, dir }).token, 'imc_x');
 });
 
 test('hook: the copy in this package is the repository\'s hook, byte for byte', () => {

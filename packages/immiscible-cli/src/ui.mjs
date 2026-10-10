@@ -21,7 +21,7 @@ export function makeUi({ json = false, color = null, stdout = process.stdout, st
   const err = (s = '') => { if (!json) stderr.write(`${s}\n`); };
 
   const ui = {
-    json, interactive, c, tty,
+    json, interactive, c, tty, useColor,
     out,
     err,
     blank: () => out(''),

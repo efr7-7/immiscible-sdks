@@ -1,0 +1,33 @@
+name: Immiscible agent configuration check
+description: Fails a pull request that adds a coding-agent hook, plugin or MCP server not on the repository's allow list (immiscible scan --ci).
+author: Eóin Forker
+branding:
+  icon: shield
+  color: blue
+inputs:
+  token:
+    description: An Immiscible CLI token (immiscible token create --name ci). With one, the workspace's own allow list counts too and each run shows on the Agents page. Leave it out to check against the repository's allow list alone.
+    required: false
+    default: ''
+  url:
+    description: Your Immiscible server, when it is not the hosted one.
+    required: false
+    default: ''
+  directory:
+    description: The repository directory to check.
+    required: false
+    default: '.'
+runs:
+  using: composite
+  steps:
+    # The CLI has no dependencies, so it runs from this checkout of the action: nothing is installed from npm.
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+    - shell: bash
+      working-directory: ${{ inputs.directory }}
+      env:
+        IMMISCIBLE_TOKEN: ${{ inputs.token }}
+        # Always set, so a pull request's .env cannot choose where the token goes.
+        IMMISCIBLE_URL: ${{ inputs.url || 'https://immiscible.ai' }}
+      run: node "$GITHUB_ACTION_PATH/bin/immiscible.mjs" scan --ci

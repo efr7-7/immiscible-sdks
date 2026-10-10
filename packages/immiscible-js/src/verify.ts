@@ -51,6 +51,18 @@ export interface ReceiptClaims {
   mer?: string;
   mdt?: string;
   hum?: boolean;
+  /** Receipt version: 2 binds the decision (aud, crt, mdh, prv, tnt). Absent on version 1. */
+  ver?: number;
+  /** v2: the party the receipt was issued for (a payment's merchant host). */
+  aud?: string;
+  /** v2: the basket's digest, cartDigest(cart, currency). */
+  crt?: string;
+  /** v2: SHA-256 of the signed mandate it was allowed under. */
+  mdh?: string;
+  /** v2: what shaped the request: sources the agent declared and the gateway observed. */
+  prv?: { declared: string[]; observed: string[]; mismatch: boolean };
+  /** v2: untrusted content was observed in the agent's session. */
+  tnt?: boolean;
   iat: number;
   exp: number;
   jti: string;
@@ -68,6 +80,22 @@ export interface Expect {
   mandate?: string;
   /** Require that a person approved this specific action. */
   humanApproved?: boolean;
+  /** Receipt v2: the party you are (a payment's merchant host), checked exactly against `aud`. */
+  audience?: string;
+  /** Receipt v2: the basket you are about to charge for; its digest must equal `crt`. */
+  cart?: CartLine[];
+  /** Receipt v2: or the basket's digest, from cartDigest(). */
+  cartDigest?: string;
+}
+
+/** One line of a basket: the merchant's SKU or the product's URL, a whole quantity and a unit price in minor units. */
+export interface CartLine {
+  sku?: string;
+  url?: string;
+  quantity: number;
+  unitPrice: number;
+  /** For people; not part of the digest. */
+  name?: string;
 }
 
 export interface VerifyOptions {
@@ -97,7 +125,7 @@ export type VerifyReason =
   | 'malformed' | 'unsupported_alg' | 'wrong_typ' | 'unsupported_crit' | 'missing_kid' | 'unknown_kid' | 'jwks_unavailable'
   | 'bad_signature' | 'missing_claim' | 'expired' | 'issued_in_future' | 'not_yet_valid' | 'too_old' | 'wrong_issuer'
   | 'type_mismatch' | 'amount_mismatch' | 'currency_mismatch' | 'merchant_mismatch' | 'agent_mismatch' | 'mandate_mismatch'
-  | 'human_required' | 'replayed' | 'revoked' | 'rejected_by_issuer' | 'verify_unavailable';
+  | 'human_required' | 'audience_mismatch' | 'cart_mismatch' | 'replayed' | 'revoked' | 'rejected_by_issuer' | 'verify_unavailable';
 
 export interface VerifyResult {
   valid: boolean;
@@ -136,6 +164,8 @@ export const REASONS: Readonly<Record<VerifyReason, string>> = Object.freeze({
   agent_mismatch: 'the receipt was issued to a different agent',
   mandate_mismatch: 'the receipt was allowed under a different mandate',
   human_required: 'a person did not approve this specific action',
+  audience_mismatch: 'the receipt was issued for a different party',
+  cart_mismatch: 'the receipt was authorised for a different basket, or names none',
   replayed: 'this receipt has already been used; receipts are single use',
   revoked: 'the receipt was revoked by its owner',
   rejected_by_issuer: 'the issuer rejected this receipt',
@@ -317,7 +347,38 @@ async function resolveKey(kid: string, o: { pinned: Map<string, Promise<CryptoKe
 
 // ------------------------------------------------------------ bindings
 
-function checkExpect(claims: Record<string, any>, expect?: Expect): void {
+/** Deterministic JSON: sorted keys, no whitespace. The bytes a digest covers (as the server's canonicalJson). */
+function canonicalJson(value: unknown): string {
+  if (value === undefined) return 'null';
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+  const o = value as Record<string, unknown>;
+  const keys = Object.keys(o).filter((k) => o[k] !== undefined).sort();
+  return `{${keys.map((k) => `${JSON.stringify(k)}:${canonicalJson(o[k])}`).join(',')}}`;
+}
+
+/** The canonical bytes of a basket: schema, currency, and each line's sku, url, quantity and unit price, in order. */
+export function canonicalCart(cart: CartLine[], currency: string): string {
+  if (!Array.isArray(cart) || !cart.length) throw new TypeError('canonicalCart: the cart must list at least one line');
+  const items = cart.map((l, i) => {
+    const sku = typeof l?.sku === 'string' ? l.sku.trim() : undefined;
+    const url = typeof l?.url === 'string' ? l.url.trim() : undefined;
+    if (!sku && !url) throw new TypeError(`canonicalCart: line ${i} needs a sku or a url`);
+    if (!Number.isSafeInteger(l.quantity) || l.quantity < 1 || !Number.isSafeInteger(l.unitPrice) || l.unitPrice < 0) throw new TypeError(`canonicalCart: line ${i} needs a whole quantity of 1 or more and a whole unitPrice of 0 or more`);
+    return { ...(sku ? { sku } : {}), ...(url ? { url } : {}), quantity: l.quantity, unitPrice: l.unitPrice };
+  });
+  return canonicalJson({ schema: 'assay.cart.v1', currency: String(currency ?? '').toUpperCase(), items });
+}
+
+/** SHA-256 of canonicalCart, base64url: what a v2 receipt's `crt` claim holds for that basket. */
+export async function cartDigest(cart: CartLine[], currency: string): Promise<string> {
+  const bytes = new Uint8Array(await (await subtle()).digest('SHA-256', utf8.encode(canonicalCart(cart, currency)) as BufferSource));
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+async function checkExpect(claims: Record<string, any>, expect?: Expect): Promise<void> {
   if (!expect) return;
   if (expect.type != null && claims.typ !== expect.type) throw new Fail('type_mismatch');
   if (expect.amount != null && claims.amt !== expect.amount) {
@@ -331,6 +392,20 @@ function checkExpect(claims: Record<string, any>, expect?: Expect): void {
   if (expect.agent != null && claims.sub !== expect.agent) throw new Fail('agent_mismatch');
   if (expect.mandate != null && claims.mdt !== expect.mandate) throw new Fail('mandate_mismatch');
   if (expect.humanApproved === true && claims.hum !== true) throw new Fail('human_required');
+  if (expect.audience != null && (typeof claims.aud !== 'string' || normaliseDomain(claims.aud) !== normaliseDomain(expect.audience))) {
+    throw new Fail('audience_mismatch', `${REASONS.audience_mismatch}: ${claims.aud ?? 'none'}`);
+  }
+  if (expect.cart != null || expect.cartDigest != null) {
+    let want: string | null = typeof expect.cartDigest === 'string' ? expect.cartDigest : null;
+    if (!want && expect.cart != null) {
+      try {
+        want = await cartDigest(expect.cart, String(claims.cur ?? ''));
+      } catch {
+        want = null;
+      }
+    }
+    if (!want || typeof claims.crt !== 'string' || want !== claims.crt) throw new Fail('cart_mismatch');
+  }
 }
 
 const ok = (header: Record<string, unknown>, claims: ReceiptClaims): VerifyResult => ({ valid: true, reason: null, message: null, header, claims });
@@ -396,7 +471,7 @@ export async function verifyReceipt(token: string, options: VerifyOptions = {}):
     if (issuer && checkIssuer && trimSlash(claims.iss ?? '') !== trimSlash(issuer)) {
       throw new Fail('wrong_issuer', `${REASONS.wrong_issuer} (${String(claims.iss).slice(0, 80)})`);
     }
-    checkExpect(claims, expect);
+    await checkExpect(claims, expect);
     result = ok(header, claims as ReceiptClaims);
   } catch (err) {
     if (err instanceof Fail) return bad(err);
@@ -421,12 +496,23 @@ export async function verifyOnline(token: string, opts: { baseUrl?: string; issu
   const base = opts.baseUrl ?? opts.issuer;
   if (!base) throw new TypeError('verifyOnline: pass { baseUrl } (the Immiscible URL you trust)');
   const f = opts.fetch ?? ((i: RequestInfo | URL, init?: RequestInit) => globalThis.fetch(i, init));
+  // What the issuer can check before it marks the receipt used: a receipt for
+  // another basket, party, merchant or a smaller amount is refused there and
+  // stays unused. Everything is checked again here, exactly, afterwards.
+  const e = opts.expect;
+  const serverExpect: Record<string, unknown> = {};
+  if (e?.amount != null) serverExpect.amount = e.amount;
+  if (e?.currency != null) serverExpect.currency = String(e.currency).toUpperCase();
+  if (typeof e?.merchant === 'string') serverExpect.merchant = e.merchant;
+  if (e?.audience != null) serverExpect.audience = e.audience;
+  if (e?.cartDigest != null) serverExpect.cartDigest = e.cartDigest;
+  else if (e?.cart != null) serverExpect.cart = e.cart;
   let body: any;
   try {
     const res = await f(`${trimSlash(base)}/v1/verify`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', accept: 'application/json' },
-      body: JSON.stringify({ receipt: token }),
+      body: JSON.stringify(Object.keys(serverExpect).length ? { receipt: token, expect: serverExpect } : { receipt: token }),
       signal: opts.signal,
     });
     body = await res.json().catch(() => null);
@@ -439,11 +525,12 @@ export async function verifyOnline(token: string, opts: { baseUrl?: string; issu
     return { valid: false, reason: 'replayed', message: body.reason ?? REASONS.replayed, replayed: true, header: null, claims: body.claims ?? null };
   }
   if (!body.valid) {
-    const reason: VerifyReason = body.expired ? 'expired' : body.revoked ? 'revoked' : 'rejected_by_issuer';
+    const code = Array.isArray(body.codes) ? body.codes.find((c: string) => c in REASONS) : undefined;
+    const reason: VerifyReason = body.expired ? 'expired' : body.revoked ? 'revoked' : (code as VerifyReason | undefined) ?? 'rejected_by_issuer';
     return { valid: false, reason, message: body.reason ?? REASONS[reason], header: null, claims: null, ...(body.revoked ? { revoked: true } : {}) };
   }
   try {
-    checkExpect(body.claims ?? {}, opts.expect);
+    await checkExpect(body.claims ?? {}, opts.expect);
   } catch (err) {
     if (err instanceof Fail) return { ...bad(err), replayed: false };
     throw err;

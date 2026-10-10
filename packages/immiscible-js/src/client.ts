@@ -22,7 +22,7 @@ import type { Action, Decision, GuardOptions, Merchant, Provenance, SettleStatus
 
 export const SDK_VERSION = '0.1.1';
 /** The hosted service, the same default as the CLI. Set IMMISCIBLE_URL (or baseUrl) for your own server. */
-export const DEFAULT_BASE_URL = 'https://immiscible.fly.dev';
+export const DEFAULT_BASE_URL = 'https://immiscible.ai';
 const SETTLE_STATUSES: readonly SettleStatus[] = ['completed', 'failed', 'cancelled'];
 const OUTCOME_STATUSES = ['accepted', 'partial', 'rejected', 'abandoned'] as const;
 const RETRY_STATUS = new Set([429, 500, 502, 503, 504]);
@@ -32,7 +32,7 @@ export interface ImmiscibleOptions {
   apiKey?: string;
   /** With a platform's workspace token: the agent to act as (agt_..., one the platform added). Sent as the immiscible-agent header. Default: IMMISCIBLE_AGENT_ID. */
   agentId?: string;
-  /** Default: IMMISCIBLE_URL, then ASSAY_URL, then https://immiscible.fly.dev (the hosted service). */
+  /** Default: IMMISCIBLE_URL, then ASSAY_URL, then https://immiscible.ai (the hosted service). */
   baseUrl?: string;
   /** Per request. Default 30 s. */
   timeoutMs?: number;

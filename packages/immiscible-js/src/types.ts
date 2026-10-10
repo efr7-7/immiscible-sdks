@@ -5,7 +5,7 @@
 
 export type ActionType = 'payment' | 'data.release' | 'email.send' | 'calendar.write' | 'account.change' | 'tool.call' | (string & {});
 
-export type ProvenanceSource = 'user' | 'agent' | 'web' | 'email' | 'document' | 'tool' | (string & {});
+export type ProvenanceSource = 'user' | 'agent' | 'peer' | 'web' | 'email' | 'document' | 'tool' | (string & {});
 
 export interface Provenance {
   source: ProvenanceSource;

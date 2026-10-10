@@ -4,7 +4,7 @@
  * message to Immiscible's remote MCP server (Streamable HTTP) and returns
  * its answers. No dependencies; Node 18 or later.
  *
- *   IMMISCIBLE_URL        the server (default https://immiscible.fly.dev)
+ *   IMMISCIBLE_URL        the server (default https://immiscible.ai)
  *   IMMISCIBLE_AGENT_KEY  the agent key (ask_...), sent as a bearer token
  *
  * It holds nothing but the session id the server issues. When the server
@@ -15,7 +15,7 @@
 
 import { createInterface } from 'node:readline';
 
-const base = (process.env.IMMISCIBLE_URL || 'https://immiscible.fly.dev').replace(/\/+$/, '');
+const base = (process.env.IMMISCIBLE_URL || 'https://immiscible.ai').replace(/\/+$/, '');
 const endpoint = `${base}/mcp`;
 const key = (process.env.IMMISCIBLE_AGENT_KEY || '').trim();
 const TIMEOUT_MS = Math.min(Number(process.env.IMMISCIBLE_TIMEOUT_MS) || 30_000, 120_000);

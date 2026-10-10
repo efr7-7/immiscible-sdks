@@ -40,5 +40,15 @@ test('a network failure is a connection error', async () => {
 });
 
 test('the default base URL is the hosted service', () => {
-  assert.equal(DEFAULT_BASE_URL, 'https://immiscible.fly.dev');
+  assert.equal(DEFAULT_BASE_URL, 'https://immiscible.ai');
+});
+
+test('retryable: the server says, else a rate limit, an outage or no connection', async () => {
+  const { ImmiscibleError } = await import('../dist/esm/index.js');
+  assert.equal(new ImmiscibleError('x', { status: 400, body: { error: { type: 'invalid_request', retryable: false } } }).retryable, false);
+  assert.equal(new ImmiscibleError('x', { status: 503, body: { error: { type: 'overloaded', retryable: true } } }).retryable, true);
+  assert.equal(new ImmiscibleError('x', { status: 429 }).retryable, true, 'an older server that does not say');
+  assert.equal(new ImmiscibleError('x', { status: 403 }).retryable, false);
+  assert.equal(new ImmiscibleError('x', { type: 'network_error' }).retryable, true);
+  assert.equal(new ImmiscibleError('x', { type: 'denied' }).retryable, false);
 });

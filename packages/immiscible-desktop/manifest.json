@@ -6,10 +6,10 @@
   "version": "0.1.1",
   "description": "Ask before AI agents pay, share data or act: allow, deny or ask a person, with signed receipts.",
   "long_description": "Immiscible decides what AI agents may spend, share and do. With this extension, Claude asks Immiscible before it pays, shares personal data or takes an action that reaches another system. Each request is decided against rules your organisation wrote: allowed with a signed receipt, sent to a named person to approve, or refused, with the reasons in plain English. Immiscible never holds funds, card numbers or wallet keys and never moves money.\n\nThe extension is a small local bridge to Immiscible's hosted MCP server: it forwards each message and holds nothing but the session. If Immiscible cannot be reached, Claude is told there is no decision, which is never an allow. Get an agent key with `npx immiscible init`, or in the console under Agents.",
-  "author": { "name": "Eóin Forker", "url": "https://immiscible.fly.dev" },
+  "author": { "name": "Eóin Forker", "url": "https://immiscible.ai" },
   "repository": { "type": "git", "url": "https://github.com/efr7-7/immiscible-sdks" },
-  "homepage": "https://immiscible.fly.dev",
-  "documentation": "https://immiscible.fly.dev/docs/ai-agents",
+  "homepage": "https://immiscible.ai",
+  "documentation": "https://immiscible.ai/docs/ai-agents",
   "support": "https://github.com/efr7-7/immiscible-sdks/issues",
   "icon": "icon.png",
   "server": {
@@ -39,7 +39,7 @@
   ],
   "keywords": ["approvals", "spend limits", "agent governance", "kill switch", "audit", "payments", "human in the loop"],
   "license": "MIT",
-  "privacy_policies": ["https://immiscible.fly.dev/legal/privacy"],
+  "privacy_policies": ["https://immiscible.ai/legal/privacy"],
   "compatibility": {
     "claude_desktop": ">=0.10.0",
     "platforms": ["darwin", "win32", "linux"],
@@ -57,7 +57,7 @@
       "type": "string",
       "title": "Immiscible server",
       "description": "Leave as it is for the hosted service, or the address of your own server.",
-      "default": "https://immiscible.fly.dev",
+      "default": "https://immiscible.ai",
       "required": false
     }
   }

@@ -1,5 +1,13 @@
 # Changelog: @immiscible/sdk
 
+## Unreleased
+
+Added
+
+- Every `ImmiscibleError` has `retryable`: whether the same request, sent again unchanged, can succeed. It is the server's `error.retryable` (new on every API error), or for an older server, true for a rate limit, an overload, an outage or no connection.
+- Receipt version 2: `verifyReceipt` checks `expect.audience`, `expect.cart` and `expect.cartDigest` against a receipt's `aud` and `crt` claims (reasons `audience_mismatch` and `cart_mismatch`), and `cartDigest(cart, currency)` gives a basket's digest. `verifyOnline` sends these checks, and the amount, currency and merchant, to the issuer, so a receipt for another basket is refused there and not used up. Version 1 receipts still verify.
+- `resolveInterruptions` (`@immiscible/sdk/openai-agents`) answers an OpenAI Agents SDK run's tool approval interruptions with Immiscible's decision, and `hitlDecisions` (`@immiscible/sdk/langchain`) gives LangChain's HumanInTheLoopMiddleware its resume value; a call Immiscible asks a person about waits for them.
+
 ## 0.1.1 (6 October 2026)
 
 Added

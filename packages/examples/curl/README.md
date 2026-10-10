@@ -3,7 +3,7 @@
 Any language that can make an HTTP request can ask first. Every SDK, guard and plugin is a wrapper round this one call.
 
 ```bash
-export IMMISCIBLE_URL=https://immiscible.fly.dev IMMISCIBLE_AGENT_KEY=ask_...   # npx immiscible init writes both to .env
+export IMMISCIBLE_URL=https://immiscible.ai IMMISCIBLE_AGENT_KEY=ask_...   # npx immiscible init writes both to .env
 sh authorize.sh
 ```
 
@@ -18,4 +18,4 @@ A payment looks like this:
   "payment": { "amount": 125000, "currency": "GBP", "merchant": { "name": "Acme Supplies", "domain": "acme-supplies.example" } } }
 ```
 
-Amounts are in minor units (pence). The receipt is an Ed25519 compact JWS; check it offline with `npx immiscible verify` against `/.well-known/immiscible-keys.json`. The full reference is at https://immiscible.fly.dev/docs/api.
+Amounts are in minor units (pence). The receipt is an Ed25519 compact JWS; check it offline with `npx immiscible verify` against `/.well-known/immiscible-keys.json`. The full reference is at https://immiscible.ai/docs/api.

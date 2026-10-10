@@ -20,8 +20,8 @@ export {
   ImmiscibleAuthenticationError, ImmiscibleInvalidRequestError, ImmiscibleRateLimitError, ImmiscibleIdempotencyConflictError, ImmiscibleConnectionError,
 } from './errors.js';
 export type { FieldError } from './errors.js';
-export { verifyReceipt, verifyOnline, fetchJwks, pinJwks, decodeReceiptUnverified, clearJwksCache, RECEIPT_TYP, JWKS_PATH, REASONS } from './verify.js';
-export type { Jwk, Jwks, ReceiptClaims, Expect, VerifyOptions, VerifyResult, VerifyReason } from './verify.js';
+export { verifyReceipt, verifyOnline, fetchJwks, pinJwks, decodeReceiptUnverified, clearJwksCache, cartDigest, canonicalCart, RECEIPT_TYP, JWKS_PATH, REASONS } from './verify.js';
+export type { Jwk, Jwks, ReceiptClaims, Expect, CartLine, VerifyOptions, VerifyResult, VerifyReason } from './verify.js';
 export { cryptoAction, decideThenSign, x402Fetch, readPaymentRequired, receiptCovers, fromAtomic, X402_ASSETS } from './crypto.js';
 export type { CryptoPayment, DecideThenSignOptions, Signed, X402Options, X402Requirements, X402PaymentRequired } from './crypto.js';
 export type * from './types.js';

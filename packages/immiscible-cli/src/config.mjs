@@ -15,7 +15,7 @@ import { homedir } from 'node:os';
 import path from 'node:path';
 import { readEnvFile } from './dotenv.mjs';
 
-export const DEFAULT_URL = 'https://immiscible.fly.dev';
+export const DEFAULT_URL = 'https://immiscible.ai';
 
 export function configDir(env = process.env) {
   const base = env.XDG_CONFIG_HOME && path.isAbsolute(env.XDG_CONFIG_HOME) ? env.XDG_CONFIG_HOME : path.join(env.HOME || homedir(), '.config');
@@ -104,5 +104,10 @@ export function resolveContext({ flags = {}, env = process.env, dir = process.cw
   if (flags.token) { token = flags.token; tokenFrom = '--token'; }
   else if (env.IMMISCIBLE_TOKEN) { token = env.IMMISCIBLE_TOKEN; tokenFrom = 'IMMISCIBLE_TOKEN'; }
   else if (saved?.token) { token = saved.token; tokenFrom = 'credentials'; }
-  return { url, urlFrom, token, tokenFrom, saved, creds, dotenv };
+  // A token from the flag or the environment is not sent to a server only the project's .env names: a
+  // repository you cloned, or a pull request in CI, could otherwise choose where your token goes. (A saved
+  // sign-in is kept per server, so it only ever goes to the server it was made for.)
+  let withheld = null;
+  if (urlFrom === '.env' && (tokenFrom === '--token' || tokenFrom === 'IMMISCIBLE_TOKEN')) { withheld = tokenFrom; token = null; tokenFrom = null; }
+  return { url, urlFrom, token, tokenFrom, withheld, saved, creds, dotenv };
 }

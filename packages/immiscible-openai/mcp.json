@@ -3,7 +3,7 @@
   "mcpServers": {
     "immiscible": {
       "type": "streamable-http",
-      "url": "https://immiscible.fly.dev/mcp"
+      "url": "https://immiscible.ai/mcp"
     }
   }
 }

@@ -3,7 +3,7 @@
   "version": "0.1.1",
   "description": "Approvals, spend limits and a kill switch for Claude Code: a fail-closed PreToolUse hook that asks Immiscible before every Bash command, file edit, web fetch and MCP call, and the Immiscible MCP server for asking before paying or sharing personal data.",
   "author": { "name": "Eóin Forker" },
-  "homepage": "https://immiscible.fly.dev/docs/answers/claude-code-block-commands",
+  "homepage": "https://immiscible.ai/docs/answers/claude-code-block-commands",
   "repository": "https://github.com/efr7-7/immiscible-sdks",
   "license": "MIT",
   "keywords": ["approvals", "spend limits", "hooks", "pretooluse", "kill switch", "audit", "mcp", "agent governance"]

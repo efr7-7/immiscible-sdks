@@ -8,3 +8,5 @@ export { guardLangChainTool, guardLangChainTools } from './langchain.js';
 export type { LangChainToolLike } from './langchain.js';
 export { guardAiTool, guardAiTools, immiscibleMiddleware } from './vercel-ai.js';
 export type { AiToolLike, MiddlewareOptions } from './vercel-ai.js';
+export { resolveInterruptions, hitlDecisions } from './approvals.js';
+export type { ApprovalAdapterOptions, ResolvedCall, InterruptedResultLike, ToolApprovalItemLike, HitlRequestLike } from './approvals.js';

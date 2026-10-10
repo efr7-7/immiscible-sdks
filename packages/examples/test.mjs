@@ -87,13 +87,25 @@ const EXAMPLES = {
     expect: [/^lookup_invoice: invoice 0931: £1,250\.00/m, /^waiting for a person: /m, /^deploy: deployed api$/m, /^upload_report: Immiscible refused this action: no mandate lets this agent reach evil\.example\. Do not proceed/m],
   },
   mcp: { check: checkMcp },
+  'agentcore-interceptor': {
+    run: ['node', ['check.mjs']],
+    expect: [
+      /^tools\/list: passed to the target$/m,
+      /^lookup_invoice: passed to the target$/m,
+      /^deploy, no wait: answered by the gateway: Immiscible needs a person to approve this: .* Approve or deny at /m,
+      /^deploy, waiting for a person: passed to the target$/m,
+      /^upload_report: answered by the gateway: Immiscible refused this: no mandate lets this agent reach evil\.example\. Do not try it another way\.$/m,
+      /^response: answered by the gateway: \{"jsonrpc":"2\.0","id":1,"result":\{"tools":\[\]\}\}$/m,
+      /^unreachable: answered by the gateway: Immiscible \(failing closed\): Immiscible could not be reached/m,
+    ],
+  },
 };
 
 /** The MCP configs: Claude Code's matches the CLI, Claude Desktop's runs the bridge, and the proxy config works end to end. */
 async function checkMcp(dir, fake) {
   const read = (f) => JSON.parse(readFileSync(path.join(dir, f), 'utf8'));
   const { mcpSetups } = await import(pathToFileURL(path.join(PACKAGES, 'immiscible-cli', 'src', 'commands', 'mcp.mjs')).href);
-  const cli = JSON.parse(mcpSetups('https://immiscible.fly.dev')['claude-code'].config);
+  const cli = JSON.parse(mcpSetups('https://immiscible.ai')['claude-code'].config);
   if (JSON.stringify(read('.mcp.json')) !== JSON.stringify(cli)) throw new Error('.mcp.json differs from what npx immiscible mcp --client claude-code prints');
 
   const desktop = read('claude_desktop_config.json').mcpServers.immiscible;

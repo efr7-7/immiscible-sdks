@@ -5,7 +5,7 @@
  * only, so a plugin entry of type http never saw the key `npx immiscible init`
  * writes to the project's .env. This bridge reads it there, as the hook does.
  *
- *   IMMISCIBLE_URL        the server (default https://immiscible.fly.dev)
+ *   IMMISCIBLE_URL        the server (default https://immiscible.ai)
  *   IMMISCIBLE_AGENT_KEY  the agent key, sent as a bearer token
  *
  * Each is read from the environment first, then from .env in the project
@@ -51,7 +51,7 @@ function fromDotenv() {
 const file = fromDotenv();
 const env = (name) => process.env[`IMMISCIBLE_${name}`] || process.env[`ASSAY_${name}`] || file[`IMMISCIBLE_${name}`] || file[`ASSAY_${name}`] || '';
 
-const endpoint = `${(env('URL') || 'https://immiscible.fly.dev').replace(/\/+$/, '')}/mcp`;
+const endpoint = `${(env('URL') || 'https://immiscible.ai').replace(/\/+$/, '')}/mcp`;
 const key = env('AGENT_KEY').trim();
 const TIMEOUT_MS = Math.min(Number(env('TIMEOUT_MS')) || 30_000, 120_000);
 

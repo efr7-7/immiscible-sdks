@@ -19,7 +19,7 @@ await run.guard(toolAction('deploy', { service: 'api' }, { domain: 'mycompany.co
 
 `guard` asks, waits for a person if one is asked, runs your function only if allowed, and settles `completed` (or `failed` if it threw). A refusal throws `ImmiscibleDeniedError` with plain-English `reasons`; your function never ran.
 
-Set up a project in one command with `npx immiscible init` (it writes `IMMISCIBLE_URL` and `IMMISCIBLE_AGENT_KEY` to `.env`). Quickstart: [immiscible.fly.dev/docs/quickstart](https://immiscible.fly.dev/docs/quickstart). Answers to common questions: [immiscible.fly.dev/docs/answers](https://immiscible.fly.dev/docs/answers). SDKs: [immiscible.fly.dev/docs/sdks](https://immiscible.fly.dev/docs/sdks). API: [immiscible.fly.dev/docs/api](https://immiscible.fly.dev/docs/api). Python: [`immiscible` on PyPI](https://pypi.org/project/immiscible/). Claude Code: [`@immiscible/claude-code-hook`](https://www.npmjs.com/package/@immiscible/claude-code-hook). MIT licence.
+Set up a project in one command with `npx immiscible init` (it writes `IMMISCIBLE_URL` and `IMMISCIBLE_AGENT_KEY` to `.env`). Quickstart: [immiscible.ai/docs/quickstart](https://immiscible.ai/docs/quickstart). Answers to common questions: [immiscible.ai/docs/answers](https://immiscible.ai/docs/answers). SDKs: [immiscible.ai/docs/sdks](https://immiscible.ai/docs/sdks). API: [immiscible.ai/docs/api](https://immiscible.ai/docs/api). Python: [`immiscible` on PyPI](https://pypi.org/project/immiscible/). Claude Code: [`@immiscible/claude-code-hook`](https://www.npmjs.com/package/@immiscible/claude-code-hook). MIT licence.
 
 ## Entry points
 
@@ -37,7 +37,7 @@ Set up a project in one command with `npx immiscible init` (it writes `IMMISCIBL
 
 | Call | Does |
 |---|---|
-| `new Immiscible({ apiKey, baseUrl, timeoutMs, maxRetries, fetch, sessionId, traceparent })` | Defaults from `IMMISCIBLE_AGENT_KEY` and `IMMISCIBLE_URL` (or `ASSAY_AGENT_KEY`, `ASSAY_URL`), then `https://immiscible.fly.dev`, the hosted service (set `IMMISCIBLE_URL` for your own server). |
+| `new Immiscible({ apiKey, baseUrl, timeoutMs, maxRetries, fetch, sessionId, traceparent })` | Defaults from `IMMISCIBLE_AGENT_KEY` and `IMMISCIBLE_URL` (or `ASSAY_AGENT_KEY`, `ASSAY_URL`), then `https://immiscible.ai`, the hosted service (set `IMMISCIBLE_URL` for your own server). |
 | `immiscible.run({ sessionId, traceparent, client })` | A client for a new run: a fresh trace (or yours continued) and a fresh session. |
 | `authorize(action, { idempotencyKey, signal })` | Ask. A deny is a result, not an exception. The idempotency key goes in the body and the `Idempotency-Key` header and is reused on retries. |
 | `waitForDecision(id, { timeoutMs, initialDelayMs, maxDelayMs, factor, signal, onPoll })` | Poll with backoff and jitter until a person answers. Throws `ImmiscibleApprovalTimeoutError`, or the signal's reason on abort. |
@@ -60,8 +60,8 @@ Everything the SDK throws on purpose is an `ImmiscibleError`, with `status`, `ty
 ```ts
 import { verifyReceipt, fetchJwks } from '@immiscible/sdk/verify';
 
-const jwks = await fetchJwks('https://immiscible.fly.dev');           // or your own server; pin: fetch once, store with your config
-const r = await verifyReceipt(token, { jwks, issuer: 'https://immiscible.fly.dev', online: true,
+const jwks = await fetchJwks('https://immiscible.ai');           // or your own server; pin: fetch once, store with your config
+const r = await verifyReceipt(token, { jwks, issuer: 'https://immiscible.ai', online: true,
   expect: { amount: 6420, currency: 'GBP', merchant: 'ocado.com' } });
 ```
 
@@ -104,4 +104,4 @@ const pay = x402Fetch(new Immiscible(), { pay: ({ requirements }) => myX402Signe
 await pay('https://api.example.com/report');
 ```
 
-Amounts are decimal strings, never numbers. See [crypto payments](https://immiscible.fly.dev/docs/guides/crypto-payments) and [x402](https://immiscible.fly.dev/docs/guides/x402).
+Amounts are decimal strings, never numbers. See [crypto payments](https://immiscible.ai/docs/guides/crypto-payments) and [x402](https://immiscible.ai/docs/guides/x402).

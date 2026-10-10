@@ -32,7 +32,7 @@ __all__ = ["Immiscible", "Decision", "normalise_domain", "new_idempotency_key", 
 
 SDK_VERSION = "0.1.1"
 # The hosted service, the same default as the CLI. Set IMMISCIBLE_URL (or base_url) for your own server.
-DEFAULT_BASE_URL = "https://immiscible.fly.dev"
+DEFAULT_BASE_URL = "https://immiscible.ai"
 SETTLE_STATUSES = ("completed", "failed", "cancelled")
 OUTCOME_STATUSES = ("accepted", "partial", "rejected", "abandoned")
 _RETRY_STATUS = {429, 500, 502, 503, 504}

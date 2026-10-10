@@ -20,7 +20,7 @@ export function clientName() {
  * JSON. Returns { status, ok, json, headers, ms }; never throws for an
  * HTTP status, only for a network failure.
  */
-export async function request(base, path, { method = 'GET', auth = null, body, form, timeoutMs = 15_000, fetchImpl = fetch, headers: extra = {} } = {}) {
+export async function request(base, path, { method = 'GET', auth = null, body, form, timeoutMs = 15_000, fetchImpl = fetch, headers: extra = {}, binary = false } = {}) {
   const headers = { 'user-agent': USER_AGENT, accept: 'application/json', ...extra };
   if (auth) headers.authorization = `Bearer ${auth}`;
   let payload;
@@ -41,6 +41,11 @@ export async function request(base, path, { method = 'GET', auth = null, body, f
       exit: EXIT.NETWORK, code: 'unreachable',
       fix: 'Check the address (--url or IMMISCIBLE_URL) and your connection, then try again.',
     });
+  }
+  // binary: a successful answer is kept as bytes (a zip); an error is still read as JSON.
+  if (binary && res.ok) {
+    const bytes = Buffer.from(await res.arrayBuffer());
+    return { status: res.status, ok: res.ok, json: null, text: '', bytes, headers: res.headers, ms: Date.now() - t0 };
   }
   const text = await res.text();
   let json = null;
@@ -65,7 +70,7 @@ export function errorFrom(r, { what = 'the request' } = {}) {
 /** A client bound to one server and, optionally, one token. */
 export function api(base, token = null, { fetchImpl = fetch } = {}) {
   const call = async (method, path, opts = {}) => {
-    const r = await request(base, path, { method, auth: opts.auth === undefined ? token : opts.auth, body: opts.body, form: opts.form, timeoutMs: opts.timeoutMs, fetchImpl });
+    const r = await request(base, path, { method, auth: opts.auth === undefined ? token : opts.auth, body: opts.body, form: opts.form, timeoutMs: opts.timeoutMs, fetchImpl, binary: Boolean(opts.binary) });
     if (!r.ok && !opts.raw) {
       const err = errorFrom(r, { what: `${method} ${path}` });
       if (r.status === 404 && path.startsWith('/v1/cli/') && !r.json?.error?.fix) {
@@ -75,7 +80,7 @@ export function api(base, token = null, { fetchImpl = fetch } = {}) {
       }
       throw err;
     }
-    return opts.raw ? r : r.json;
+    return opts.raw ? r : opts.binary ? r.bytes : r.json;
   };
   return {
     base,

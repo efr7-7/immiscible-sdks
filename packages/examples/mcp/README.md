@@ -11,7 +11,7 @@ Two ways to use Immiscible over MCP. They work together.
 One line, which stores the key for you:
 
 ```bash
-claude mcp add --transport http immiscible https://immiscible.fly.dev/mcp --header "Authorization: Bearer $IMMISCIBLE_AGENT_KEY"
+claude mcp add --transport http immiscible https://immiscible.ai/mcp --header "Authorization: Bearer $IMMISCIBLE_AGENT_KEY"
 ```
 
 Or, for a project you share, commit [`.mcp.json`](.mcp.json). Claude Code fills `${IMMISCIBLE_AGENT_KEY}` from the environment and asks each person to approve the server once. `npx immiscible mcp --client claude-code` prints the same for your own server.
@@ -19,14 +19,14 @@ Or, for a project you share, commit [`.mcp.json`](.mcp.json). Claude Code fills 
 A tool server behind the proxy is the same shape, with the upstream's address from the console ([`proxy.mcp.json`](proxy.mcp.json)):
 
 ```bash
-claude mcp add --transport http shop https://immiscible.fly.dev/mcp/proxy/mcu_your_upstream_id --header "Authorization: Bearer $IMMISCIBLE_AGENT_KEY"
+claude mcp add --transport http shop https://immiscible.ai/mcp/proxy/mcu_your_upstream_id --header "Authorization: Bearer $IMMISCIBLE_AGENT_KEY"
 ```
 
 For Claude Code's own shell and file tools, add the hook as well: `npx immiscible init` installs it.
 
 ## Claude Desktop
 
-The simplest: in Claude Desktop, add `https://immiscible.fly.dev/mcp` as a custom connector and sign in. You choose which agent it acts as on the consent screen; no key is pasted.
+The simplest: in Claude Desktop, add `https://immiscible.ai/mcp` as a custom connector and sign in. You choose which agent it acts as on the consent screen; no key is pasted.
 
 With an agent key instead, use the Immiscible extension (`packages/immiscible-desktop`, an MCP Bundle), or run its dependency-free bridge from a checkout of this repository: merge [`claude_desktop_config.json`](claude_desktop_config.json) into Claude Desktop's config file (Settings, Developer, Edit Config), with the real path and key, and restart Claude Desktop. The bridge forwards each message to the server and holds nothing but the session; if Immiscible cannot be reached, Claude is told there is no decision, which is never an allow.
 

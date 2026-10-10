@@ -9,9 +9,10 @@ Short, copyable examples of asking Immiscible before an agent acts. Each folder 
 | [`mcp`](mcp) | Claude Code and Claude Desktop, through Immiscible's MCP server or the MCP proxy |
 | [`openai-agents`](openai-agents) | The OpenAI Agents SDK: `guardOpenAITools(tools)` |
 | [`langchain`](langchain) | LangChain and LangGraph: `guardLangChainTools(tools)` in a `ToolNode` |
+| [`agentcore-interceptor`](agentcore-interceptor) | An AWS AgentCore Gateway REQUEST interceptor (Lambda) that asks before every tool call |
 | [`curl`](curl) | The HTTP contract every one of them wraps |
 
-Every example reads `IMMISCIBLE_URL` and `IMMISCIBLE_AGENT_KEY`. `npx immiscible init` makes an agent and writes both to `.env`; `npx immiscible try` shows the whole flow first, offline, with no account.
+Every example reads `IMMISCIBLE_URL` and `IMMISCIBLE_AGENT_KEY`. `npx immiscible init` makes an agent and writes both to `.env`; `npx immiscible try` (CLI 0.2.0, not yet published to npm) shows the whole flow first, offline, with no account.
 
 Each one does the same three things: a call the rules allow goes ahead, one that needs a person waits until they decide, and one the rules refuse never runs, with the reasons. The framework packages (OpenAI Agents, LangChain) are your project's dependencies; no Immiscible package depends on them.
 

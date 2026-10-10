@@ -4,7 +4,7 @@
   "description": "Approvals, spend limits and signed receipts for AI agents: ask before a tool pays, shares data or acts, wait for a person, settle, verify. Guards for the OpenAI Agents SDK, LangChain, LangGraph and the Vercel AI SDK; x402 and wallet payments; an LLM gateway with budgets. Zero runtime dependencies.",
   "license": "MIT",
   "author": "Eóin Forker",
-  "homepage": "https://immiscible.fly.dev",
+  "homepage": "https://immiscible.ai",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/efr7-7/immiscible-sdks.git",

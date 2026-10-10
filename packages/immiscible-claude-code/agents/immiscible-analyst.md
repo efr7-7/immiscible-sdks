@@ -19,4 +19,4 @@ Rules:
 - If a command exits 3 (not signed in), tell the person to run `npx immiscible login` themselves. Do not sign in for them.
 - Never print or repeat an agent key (`ask_...`) or a CLI token (`imc_...`).
 - Amounts: payments are in minor units (`42000` is £420.00); model spend is in millionths of a US dollar. Say the amount in words a person reads.
-- Be short. Lead with the answer, then the detail. Link to the console or the docs page that explains more (https://immiscible.fly.dev/docs/answers, or the server in `IMMISCIBLE_URL`).
+- Be short. Lead with the answer, then the detail. Link to the console or the docs page that explains more (https://immiscible.ai/docs/answers, or the server in `IMMISCIBLE_URL`).

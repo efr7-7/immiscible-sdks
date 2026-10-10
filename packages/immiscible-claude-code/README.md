@@ -11,7 +11,7 @@ npm install -g @immiscible/claude-code-hook
 ```
 
 ```shell
-export IMMISCIBLE_URL=https://immiscible.fly.dev     # or your own server
+export IMMISCIBLE_URL=https://immiscible.ai     # or your own server
 export IMMISCIBLE_AGENT_KEY=ask_...
 immiscible-claude-code-hook --print-config     # a PreToolUse entry for .claude/settings.json
 ```
@@ -39,4 +39,4 @@ Use it beside Claude Code's own permission rules, not instead of them: those mat
 
 As a Claude Code plugin it carries the hook and Immiscible's MCP server; both read `IMMISCIBLE_URL` and `IMMISCIBLE_AGENT_KEY` from the shell or the project's `.env`, which `npx immiscible init` writes.
 
-Guide: [the Claude Code hook](https://immiscible.fly.dev/docs/guides/mcp-proxy#the-claude-code-hook). Quickstart: [immiscible.fly.dev/docs/quickstart](https://immiscible.fly.dev/docs/quickstart). SDKs: [`@immiscible/sdk`](https://www.npmjs.com/package/@immiscible/sdk), [`immiscible` on PyPI](https://pypi.org/project/immiscible/). MIT licence.
+Guide: [the Claude Code hook](https://immiscible.ai/docs/guides/mcp-proxy#the-claude-code-hook). Quickstart: [immiscible.ai/docs/quickstart](https://immiscible.ai/docs/quickstart). SDKs: [`@immiscible/sdk`](https://www.npmjs.com/package/@immiscible/sdk), [`immiscible` on PyPI](https://pypi.org/project/immiscible/). MIT licence.
