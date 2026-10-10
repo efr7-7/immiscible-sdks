@@ -94,9 +94,13 @@ def _b64u(s: str) -> bytes:
     if not isinstance(s, str) or not _B64U.match(s):
         raise _Fail("malformed")
     try:
-        return base64.urlsafe_b64decode(s + "=" * (-len(s) % 4))
+        raw = base64.urlsafe_b64decode(s + "=" * (-len(s) % 4))
     except (binascii.Error, ValueError):
         raise _Fail("malformed") from None
+    # Only the canonical spelling of these bytes, so one signature has one spelling.
+    if base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii") != s:
+        raise _Fail("malformed")
+    return raw
 
 
 def _json_part(s: str) -> dict:
@@ -379,6 +383,18 @@ def verify_online(token: str, base_url: str, *, expect: Optional[dict] = None, t
     # What the issuer can check before it marks the receipt used: a receipt for another
     # basket, party, merchant or a smaller amount is refused there and stays unused.
     # Everything is checked again here, exactly, afterwards.
+    # Checked here first, on the claims as written: a receipt that cannot cover this order is refused without
+    # asking the issuer, so it is not used up by a check the issuer does not make (type, agent, rule, person).
+    if expect:
+        try:
+            pre = decode_receipt_unverified(token)["claims"]
+        except Exception:
+            pre = None
+        if isinstance(pre, dict):
+            try:
+                _check_expect(pre, expect)
+            except _Fail as f:
+                return VerifyResult(False, f.reason, str(f), replayed=False)
     server_expect: Dict[str, Any] = {}
     e = expect or {}
     if e.get("amount") is not None:

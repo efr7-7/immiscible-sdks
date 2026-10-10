@@ -97,11 +97,13 @@ export function guardSummary({ decisions = [], days = [] } = {}, since = 0) {
   if (!decisions.length && !brokenDays.length) return null;
   const count = { allow: 0, ask: 0, deny: 0 };
   let settings = 0;
+  let paused = 0;
   const byAgent = new Map();
   const rules = new Map();
   for (const d of decisions) {
     if (!Object.hasOwn(count, d.decision)) continue;
     if (/^(ConfigChange|SessionStart):/.test(String(d.summary ?? ''))) { if (d.decision !== 'allow') settings++; continue; }
+    if (d.decision === 'allow' && String(d.rule ?? '').startsWith('paused:')) paused++;
     count[d.decision]++;
     const a = byAgent.get(d.client) ?? { agent: d.client, allow: 0, ask: 0, deny: 0 };
     a[d.decision]++;
@@ -116,6 +118,7 @@ export function guardSummary({ decisions = [], days = [] } = {}, since = 0) {
     ...count,
     byAgent: [...byAgent.values()].sort((a, b) => (b.deny + b.ask) - (a.deny + a.ask) || a.agent.localeCompare(b.agent)),
     settings,
+    paused,
     rules: [...rules].map(([k, n]) => { const [decision, rule] = k.split('|'); return { rule, decision, count: n }; }).sort((a, b) => b.count - a.count || a.rule.localeCompare(b.rule)).slice(0, 10),
     brokenDays,
   };

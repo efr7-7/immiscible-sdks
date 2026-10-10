@@ -55,7 +55,7 @@ export function renderText(report, ui) {
   if (r.guard) {
     const g = r.guard;
     section('Guard');
-    ui.out(`    ${g.total} ${g.total === 1 ? 'decision' : 'decisions'}: ${g.deny} refused, ${g.ask} asked, ${g.allow} allowed${g.settings ? c.dim(`; ${g.settings} ${g.settings === 1 ? 'settings change' : 'settings changes'} kept out of a session`) : ''}`);
+    ui.out(`    ${g.total} ${g.total === 1 ? 'decision' : 'decisions'}: ${g.deny} refused, ${g.ask} asked, ${g.allow} allowed${g.settings ? c.dim(`; ${g.settings} ${g.settings === 1 ? 'settings change' : 'settings changes'} kept out of a session`) : ''}${g.paused ? c.dim(`; ${g.paused} let through while paused`) : ''}`);
     if (g.rules.length) ui.note(`    ${g.rules.slice(0, 6).map((x) => `${x.decision === 'deny' ? 'refused' : 'asked'} ${x.rule} ${x.count}`).join(' · ')}`);
     for (const d of g.brokenDays) ui.out(`    ${c.red('✗')} the log for ${d.day} does not verify from line ${d.line}`);
     ui.blank();

@@ -32,3 +32,19 @@ test('a v2 receipt: the bindings verify offline, and each mismatch has its own r
   assert.deepEqual(r.claims.prv, { declared: ['user'], observed: [], mismatch: false });
   assert.equal(r.claims.tnt, false);
 });
+
+test('only the canonical spelling verifies, and an order the receipt cannot cover never reaches the issuer', async () => {
+  const { verifyOnline } = await import('../dist/esm/index.js');
+  const [h, c, sig] = receipt.token.split('.');
+  // The last character of a 64-byte signature carries unused bits: any other spelling of the same bytes is refused.
+  const last = sig.at(-1);
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+  const i = alphabet.indexOf(last);
+  const twin = `${sig.slice(0, -1)}${alphabet[(i & ~3) + ((i & 3) ^ 1)]}`;
+  const r = await verifyReceipt(`${h}.${c}.${twin}`, opts({}));
+  assert.equal(r.valid, false);
+  assert.equal(r.reason, 'malformed');
+  let called = 0;
+  const on = await verifyOnline(receipt.token, { baseUrl: 'https://issuer.test', fetch: async () => { called++; throw new Error('should not be called'); }, expect: { agent: 'agt_someone_else' } });
+  assert.deepEqual([on.valid, on.reason, called], [false, 'agent_mismatch', 0]);
+});

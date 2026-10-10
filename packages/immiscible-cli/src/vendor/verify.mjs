@@ -80,6 +80,10 @@ function b64uToBytes(s) {
     const out = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++)
         out[i] = bin.charCodeAt(i);
+    // Only the canonical spelling of these bytes: unused low bits in the last character must be zero, so one
+    // signature has one spelling and a receipt cannot be re-presented as a "different" string.
+    if (btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '') !== s)
+        throw new Fail('malformed');
     return out;
 }
 function jsonPart(s) {
@@ -407,6 +411,27 @@ export async function verifyOnline(token, opts = {}) {
     // another basket, party, merchant or a smaller amount is refused there and
     // stays unused. Everything is checked again here, exactly, afterwards.
     const e = opts.expect;
+    // Checked here first, on the claims as written: a receipt that cannot cover this order is refused without
+    // asking the issuer, so it is not used up by a check the issuer does not make (type, agent, rule, person).
+    if (e) {
+        let pre = null;
+        try {
+            pre = decodeReceiptUnverified(token).claims;
+        }
+        catch {
+            pre = null;
+        }
+        if (pre) {
+            try {
+                await checkExpect(pre, e);
+            }
+            catch (err) {
+                if (err instanceof Fail)
+                    return { ...bad(err), replayed: false };
+                throw err;
+            }
+        }
+    }
     const serverExpect = {};
     if (e?.amount != null)
         serverExpect.amount = e.amount;

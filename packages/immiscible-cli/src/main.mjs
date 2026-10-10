@@ -40,20 +40,20 @@ const installAny = (ctx) => ((ctx.rest?.[0] ?? null) === 'claude-code' ? install
 const COMMANDS = { about, try: tryIt, verify, login, logout, whoami, init, install: installAny, guard, doctor, status, token, mcp, check, scan: scanHistory, replay, undo, cost, policy, evidence };
 
 const HELP = {
-  main: `Immiscible: what your company spends on AI, what it could save, and what your agents may do.
+  main: `Immiscible: what your coding agents did, a guard in front of them in one command, and what any agent may spend, share and do.
 
 Usage
   immiscible <command> [flags]
 
 Commands
+  scan      What your coding agents did this week: commands, secret reads, domains, cost. Runs locally
+  guard     Put a fail-closed hook in front of every coding agent here, in one command. Undo with --off
+  undo      Put files back to the checkpoint the guard took before an agent deleted or overwrote them
+  replay    One coding-agent session as a timeline: every call, every decision, hash-chained
+  cost      What coding agents cost per branch, pull request or ticket, across vendors. Runs locally
   try       See it work in under a minute, offline, with no account: allowed, held, denied, verified
   verify    Check a signed receipt offline: immiscible verify receipt.jwt --keys keys.json
   check     What the agents here can touch: MCP servers, Claude Code permissions, keys. Runs locally
-  scan      What your coding agents did this week: commands, secret reads, domains, cost. Runs locally
-  cost      What coding agents cost per branch, pull request or ticket, across vendors. Runs locally
-  replay    One coding-agent session as a timeline: every call, every decision, hash-chained
-  guard     Put a fail-closed hook in front of every coding agent here, in one command. Undo with --off
-  undo      Put files back to the checkpoint the guard took before an agent deleted or overwrote them
   init      Govern the agent in this project: create it, write .env, install the Claude Code hook, test it
   install   A fail-closed hook for every session: install claude-code, codex, cursor, windsurf, gemini, droid, opencode or amp
   login     Sign in through your browser (device code); --token for CI
@@ -310,6 +310,7 @@ Usage
   immiscible guard [--agents all|claude-code,codex,cursor,windsurf,gemini,droid,opencode,amp] [--scope user|managed]
                    [--team | --connect --key <agent key>] [--dry-run] [--yes] [--json]
   immiscible guard --off [--dry-run] [--yes]
+  immiscible guard --status | --pause <15m..2h> | --resume
 
   Finds the coding agents on this machine and puts one fail-closed hook in front of
   each (the same hooks immiscible install writes). With no account the hooks run local
@@ -345,6 +346,10 @@ Flags
   --team           Add your workspace's rules to the local ones (signed in; run again to update)
   --connect        Ask the server instead of the local rules (needs --key or IMMISCIBLE_AGENT_KEY)
   --key <key>      An agent key, for --connect
+  --status         What is guarded here, how, the team's rules, and any pause
+  --pause <time>   For up to 2h, let through what would be asked (logged as paused); refusals stay.
+                   An agent cannot run this, or --off: the guard refuses it
+  --resume         End a pause now
   --off            Undo guard
   --dry-run        Show every change and write nothing
   -y, --yes        Go ahead without asking (needed when not a terminal)`,

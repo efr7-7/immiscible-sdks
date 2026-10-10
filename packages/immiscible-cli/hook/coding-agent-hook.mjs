@@ -350,12 +350,25 @@ const LP_PUBLIC_KEY = /\.pub(?=$|[\s"'`;|&)>])/i;
 const LP_NETWORK = /(^|[\s;|&(`$])(curl|wget|nc|ncat|netcat|socat|scp|sftp|rsync|ftp|telnet|ssh|http|https|xh|aria2c|invoke-webrequest|invoke-restmethod|iwr|irm)(?=$|[\s;|&)])/i;
 const LP_UPLOAD = /(^|[\s;|&(`$])(gh\s+(gist|repo|release|issue|pr)\s+(create|upload|comment|edit)|git\s+push)(?=$|[\s;|&)])/i;
 const LP_CONFIG_FILE = /(^|[/\s])(\.claude\/settings(\.local)?\.json|\.claude\.json|\.codex\/(config|requirements)\.toml|\.codex\/hooks\.json|\.cursor\/(hooks|mcp)\.json|\.gemini\/settings\.json|\.codeium\/windsurf\/(hooks|mcp_config)\.json|\.factory\/(hooks|settings)\.json|\.?opencode\/plugins\/[^/\s]+|\.?opencode\.jsonc?|\.?amp\/plugins\/[^/\s]+|amp\/settings\.json|\.mcp\.json|\.vscode\/(tasks|settings|mcp)\.json|\.(bash|zsh)rc|\.(bash_)?profile|\.zprofile|\.github\/workflows\/[\w.-]+\.ya?ml)$/i;
+/**
+ * An agent changing its own guard: guard --off, --pause, --connect or --url, and install with --url or the
+ * http transport, by any spelling a shell would run (quotes, backslashes, variables, case, xargs). Read on the
+ * line with quotes and backslashes taken out, so a near miss is refused rather than allowed.
+ */
+function lpGuardSelf(c) {
+  const line = String(c).replace(/["'\\]/g, '').toLowerCase();
+  if (!/immiscible/.test(line) && !/\$\{?\w+\}?\s+guard\b/.test(line)) return false;
+  if (/\bguard\b/.test(line) && /(^|\s)--(off|pause|connect|url|key)\b/.test(line)) return true;
+  return /\binstall\b/.test(line) && /(^|\s)--(url|transport|key)\b/.test(line);
+}
+
 /** Commands that delete or overwrite files in a working tree: the guard takes a checkpoint first, so they can be undone. */
 const LP_DESTRUCTIVE = /(^|[;|&(]\s*)(sudo\s+)?(xargs\s+(-\S+\s+)*)?((\\|\/(usr\/)?bin\/)?rm\s|rmdir\s|unlink\s|shred\s|truncate\s|mv\s|sed\s+(-[a-zA-Z]+\s+)*-[a-zA-Z]*i|find\s[^;|&]*\s-delete\b|rsync\s[^;|&]*--delete|git\s+(clean\s|reset\s+--hard|checkout\s+(--\s|\.\s*($|[;|&]))|restore\s|stash\s+(drop|clear)\b|rm\s))/;
 /** Paths a checkpoint never copies and undo never removes: secrets stay out of git objects. */
 const LP_CHECKPOINT_SKIP = ['.env', '.env.*', '*.pem', '*.key', 'id_rsa*', 'id_dsa*', 'id_ecdsa*', 'id_ed25519*', '.npmrc', '.pypirc', '.netrc', '.pgpass', '.git-credentials', 'credentials.json', 'service-account*.json'];
 const LP_RULES = [
   // Refused: almost never meant, and not undone by a person afterwards.
+  { id: 'guard_self', decision: 'deny', test: (c) => lpGuardSelf(c), reason: 'an agent cannot switch off, pause or redirect the guard that checks it; only you can, from your own terminal' },
   { id: 'force_push_protected', decision: 'deny', test: (c) => /\bgit\b[^;|&]*\bpush\b(?=[^;|&]*(\s--force(-with-lease)?\b|\s-[a-zA-Z]*f\b|\s\+[\w./-]+))(?=[^;|&]*[\s:+](main|master|release\/[\w.-]+|production|prod)\b)/.test(c), reason: 'a force push to a protected branch (main, master, release or production) rewrites history other people have', suggest: (c) => c.replace(/\s(?:--force(?:-with-lease)?(?:=\S*)?|-[a-zA-Z]*f[a-zA-Z]*)(?=\s|$)|(?<=\s)\+(?=[\w./-])/g, (m) => (/^\s-[a-zA-Z]*f/.test(m) && m.trim() !== '-f' ? m.replace('f', '') : '')).replace(/\s{2,}/g, ' ').trim() },
   { id: 'rm_root_or_home', decision: 'deny', test: (c) => /\brm\s+(-[a-zA-Z]*\s+)*-[a-zA-Z]*[rR][a-zA-Z]*\s+(-[a-zA-Z]+\s+)*(\/|\/\*|~|~\/|~\/\*|\$HOME|\$HOME\/|\$HOME\/\*|"\$HOME"|\.\.\/\.\.)(\s|$|;)/.test(c), reason: 'rm -r of the root, home or a parent directory deletes far more than a project' },
   { id: 'disk_wipe', decision: 'deny', test: (c) => /\b(mkfs(\.\w+)?|diskutil\s+(erase\w*|zeroDisk|secureErase))\b|\bdd\b[^;|&]*\bof=\/dev\//.test(c), reason: 'formatting or overwriting a disk' },
@@ -368,7 +381,7 @@ const LP_RULES = [
   { id: 'infrastructure', decision: 'ask', test: (c) => /\bterraform\s+(apply|destroy|import|state\s+(rm|mv))\b|\bpulumi\s+(up|destroy)\b|\bkubectl\s+(apply|delete|scale|rollout|drain|cordon|replace|patch|exec)\b|\bhelm\s+(install|upgrade|uninstall|rollback)\b|\b(aws|gcloud|az)\s+\S+\s+(delete|terminate|remove|destroy)[\w-]*\b|\bfly\s+(deploy|destroy|apps\s+destroy)\b|\bvercel\s+(--prod|deploy\s+--prod)\b/.test(c), reason: 'changing live infrastructure' },
   { id: 'database_destructive', decision: 'ask', test: (c) => /\b(drop\s+(table|database|schema)|truncate\s+table)\b|\bprisma\s+migrate\s+reset\b|\brails\s+db:(drop|reset)\b/i.test(c), reason: 'dropping or emptying a database' },
   { id: 'history_rewrite', decision: 'ask', test: (c) => /\bgit\s+(reset\s+--hard\s+\S*(origin|upstream)\/|clean\s+-[a-zA-Z]*f[a-zA-Z]*d|branch\s+-D\s+(main|master)\b|filter-(branch|repo)\b)/.test(c), reason: 'throwing away work git cannot give back' },
-  { id: 'guard_records', decision: 'ask', test: (c) => /\.immiscible(\/|\b)/.test(c) && /(^|[;|&(]\s*)(sudo\s+)?(rm|mv|cp|truncate|unlink|shred|chmod|chown|sed|tee|ln|find)\s|>/.test(c), reason: "changing Immiscible's own records (~/.immiscible), which the guard reads to decide" },
+  { id: 'guard_records', decision: 'ask', test: (c) => /\.immiscible(\/|\b)|\bpause\.json\b|\bteam-rules\.json\b|\bguard(-managed)?\.json\b/i.test(c.replace(/["'\\]/g, '')), reason: "touching Immiscible's own records (~/.immiscible), which the guard reads to decide" },
   { id: 'sudo', decision: 'ask', test: (c) => /(^|[;|&(]\s*)sudo\s/.test(c), reason: 'a command as the administrator' },
   { id: 'world_writable', decision: 'ask', test: (c) => /\bchmod\s+(-R\s+)?(0?777|a\+w|o\+w)\b/.test(c), reason: 'making files writable by everyone' },
 ];
@@ -575,6 +588,34 @@ function lpTeamDecide(team, summary) {
   return null;
 }
 
+/** Asks a pause never softens: the guard's own records, agent configuration, a secret then the network, a command too long to read. */
+const LP_NOT_PAUSED = new Set(['guard_records', 'agent_config', 'secret_then_network', 'too_long']);
+
+/**
+ * Until when the person paused the guard (ms), from ~/.immiscible/pause.json, or 0.
+ * A pause longer than two hours is treated as two hours from when it was set.
+ */
+async function lpPausedUntil(managed = false) {
+  try {
+    const fs = await import('node:fs');
+    const { join } = await import('node:path');
+    const { homedir } = await import('node:os');
+    const home = process.env.HOME || process.env.USERPROFILE || homedir();
+    // A machine with a managed guard takes a pause only from the administrator's file, which agents cannot write.
+    const system = process.platform === 'win32' ? join(process.env.ProgramData || 'C:\\ProgramData', 'immiscible', 'pause.json') : '/etc/immiscible/pause.json';
+    const file = managed ? system : join(home, '.immiscible', 'pause.json');
+    const p = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const at = Date.parse(p.at);
+    const until = Date.parse(p.until);
+    const now = Date.now();
+    if (!Number.isFinite(at) || !Number.isFinite(until)) return 0;
+    // Set now, not in the future, for no more than two hours, and not rewritten since it was set.
+    if (at > now + 60_000 || until - at > 2 * 3_600_000) return 0;
+    if (fs.statSync(file).mtimeMs > at + 60_000) return 0;
+    return until;
+  } catch { return 0; }
+}
+
 /** The built-in rules alone. */
 function lpBuiltIn(summary, state = {}) {
   const s = String(summary ?? '');
@@ -582,7 +623,7 @@ function lpBuiltIn(summary, state = {}) {
   const tool = m ? m[1] : '';
   const body = m ? m[2] : s;
   const said = (decision, rule, reason, secretRead = null) => ({ decision, rule, reason, secretRead, undoable: lpUndoable(tool, body, decision, rule) });
-  if (tool === 'Bash') {
+  if (tool === 'Bash' || tool === 'PowerShell') {
     for (const r of LP_RULES) {
       if (!r.test(body)) continue;
       // Redirect decisions: a refused command may have a safer form; it is suggested, never run for the agent.
@@ -761,6 +802,13 @@ async function localGuard(client, sessionId, summary, where = {}) {
     } catch { /* no branch known: a push with no refspec is judged by its words alone */ }
   }
   const d = localDecide(summary, fresh ? state : { ...state, secretRead: null }, team);
+  // Paused by the person (immiscible guard --pause): what would be asked goes ahead, logged as paused. Refusals
+  // stay, and so do the asks that protect the guard itself, agent configuration and secrets.
+  if (d.decision === 'ask' && !LP_NOT_PAUSED.has(d.rule) && !String(d.rule ?? '').startsWith('team:') && (await lpPausedUntil(where.managed === true)) > Date.now()) {
+    d.reason = `Immiscible guard is paused: ${d.reason.replace(/^Immiscible guard[^:]*: /, '')}`;
+    d.rule = `paused:${d.rule}`;
+    d.decision = 'allow';
+  }
   if (d.secretRead && !fresh) await save({ ...state, secretRead: d.secretRead, secretReadAt: Date.now() });
   // A call put to the person at the keyboard, by an agent whose after-call hook says when it ran: kept for a
   // day in a file of its own (so the two hooks never write over each other's state), and logged as answerable.
@@ -1037,7 +1085,7 @@ async function main() {
     // immiscible guard: decided here, with nothing sent anywhere. Only Cursor can
     // ask the person at the keyboard; the others refuse with the way to go ahead.
     for (const [n, c] of calls.entries()) {
-      const d = await localGuard(CLIENT[agent], session?.id ?? null, c.full ?? c.summary, { dir: projectOf(agent, event)?.cwd ?? null, canAsk: CAN_ASK.has(agent), after: CAN_ASK.has(agent) });
+      const d = await localGuard(CLIENT[agent], session?.id ?? null, c.full ?? c.summary, { dir: projectOf(agent, event)?.cwd ?? null, canAsk: CAN_ASK.has(agent), after: CAN_ASK.has(agent), managed: installScope() === 'managed' });
       const of = calls.length > 1 ? ` (file ${n + 1} of ${calls.length})` : '';
       if (d.decision === 'deny') return answer(agent, 'deny', `${d.reason}${of} Refused on this machine; to allow it, run it yourself.`);
       if (d.decision === 'ask') {

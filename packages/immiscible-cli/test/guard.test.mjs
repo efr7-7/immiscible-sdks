@@ -176,3 +176,43 @@ test('guard --agents all: a fresh box with no agent yet gets every hook, and --o
   assert.equal(m2.status, 0, m2.stderr + m2.stdout);
   assert.deepEqual(JSON.parse(m2.stdout).skipped.map((x) => x.agent), ['opencode', 'amp']);
 });
+
+test('guard protects itself; a person can pause it for a while, and status says so', async () => {
+  const h = home();
+  const g = await runCli(['guard', '--agents', 'codex', '--yes', '--json'], { cwd: h, home: h });
+  assert.equal(g.code, 0, g.stderr);
+  const hook = path.join(h, '.immiscible', 'coding-agent-hook.mjs');
+  const run = (cmd) => spawnSync(process.execPath, [hook, '--agent', 'codex'], { input: JSON.stringify({ session_id: 's', hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: cmd }, cwd: h }), encoding: 'utf8', env: { PATH: process.env.PATH, HOME: h, IMMISCIBLE_MODE: 'local' } });
+  const said = (cmd) => { const r = run(cmd); return `${r.stdout}${r.stderr}`; };
+  // An agent cannot switch it off or pause it.
+  assert.match(said('npx immiscible guard --off --yes'), /cannot switch off, pause or redirect the guard/);
+  assert.match(said('npx -y immiscible@0.3.0 guard --pause 2h'), /cannot switch off, pause or redirect the guard/);
+  // A person pauses: an ask goes ahead, logged as paused; a refusal stays; agent config is still asked about.
+  assert.match(said('npm publish'), /publishing a package/);
+  const p = await runCli(['guard', '--pause', '30m', '--json'], { cwd: h, home: h });
+  assert.equal(p.json.paused, true);
+  const published = run('npm publish');
+  assert.equal(published.status, 0);
+  assert.ok(!/deny|block/i.test(published.stdout), published.stdout);
+  assert.match(said('git push --force origin main'), /protected branch/);
+  assert.match(said('echo x >> ~/.immiscible/pause.json'), /Immiscible's own records/);
+  const st = await runCli(['guard', '--status', '--json'], { cwd: h, home: h });
+  assert.deepEqual([st.json.on, st.json.agents, Boolean(st.json.pausedUntil), st.json.unguarded], [true, ['codex'], true, ['claude-code']]);
+  const scan = await runCli(['scan', '--json'], { cwd: h, home: h });
+  assert.equal(scan.json.guard.paused, 1);
+  // From inside an agent's own shell the CLI refuses too.
+  const inside = await runCli(['guard', '--pause', '10m', '--json'], { cwd: h, home: h, env: { CLAUDECODE: '1' } });
+  assert.equal(inside.code, 6, inside.stdout);
+  assert.equal(inside.json.error.code, 'agent_shell');
+  // A pause file written by hand into the future, or rewritten after it was set, is not a pause.
+  const pf = path.join(h, '.immiscible', 'pause.json');
+  writeFileSync(pf, JSON.stringify({ at: '9999-01-01T00:00:00.000Z', until: '9999-01-01T01:00:00.000Z' }));
+  assert.match(said('npm publish'), /publishing a package/);
+  writeFileSync(pf, JSON.stringify({ at: new Date(Date.now() - 3_600_000).toISOString(), until: new Date(Date.now() + 3_000_000).toISOString() }));
+  assert.match(said('npm publish'), /publishing a package/, 'written an hour after the time it claims');
+  await runCli(['guard', '--pause', '30m'], { cwd: h, home: h });
+  // Resume, and asks are asked again; a pause over two hours is refused.
+  assert.equal((await runCli(['guard', '--resume', '--json'], { cwd: h, home: h })).json.wasPaused, true);
+  assert.match(said('npm publish'), /publishing a package/);
+  assert.equal((await runCli(['guard', '--pause', '5h'], { cwd: h, home: h })).code, 2);
+});

@@ -68,3 +68,27 @@ class Bindings(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Strictness(unittest.TestCase):
+    def test_only_the_canonical_spelling_verifies(self):
+        h, c, sig = RECEIPT["token"].split(".")
+        alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+        i = alphabet.index(sig[-1])
+        twin = sig[:-1] + alphabet[(i & ~3) + ((i & 3) ^ 1)]
+        r = verify_receipt(f"{h}.{c}.{twin}", RECEIPT["issuer"], jwks=RECEIPT["jwks"], now=RECEIPT["claims"]["iat"] + 60)
+        self.assertFalse(r.valid)
+        self.assertEqual(r.reason, "malformed")
+
+    def test_an_order_it_cannot_cover_never_reaches_the_issuer(self):
+        from immiscible.verify import verify_online
+        called = []
+
+        def opener(*a, **k):
+            called.append(1)
+            raise AssertionError("should not be called")
+
+        r = verify_online(RECEIPT["token"], "https://issuer.test", expect={"agent": "agt_someone_else"}, opener=opener)
+        self.assertFalse(r.valid)
+        self.assertEqual(r.reason, "agent_mismatch")
+        self.assertEqual(called, [])

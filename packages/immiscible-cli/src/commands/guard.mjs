@@ -28,7 +28,7 @@
  * guard wrote; a file someone has changed since is left alone and named.
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync, chmodSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync, chmodSync, statSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
@@ -42,7 +42,7 @@ export const GUARD_TARGETS = Object.freeze(['claude-code', ...AGENT_TARGETS]);
 const LABELS = Object.freeze({ 'claude-code': 'Claude Code', ...AGENT_LABELS });
 const STATE_VERSION = 1;
 
-export const REFUSED = 'force pushes to main, master, release or production; rm -r of the root or home directory; secrets sent off the machine; disk wipes; network or shutdown lines added to shell start-up files';
+export const REFUSED = 'force pushes to main, master, release or production; rm -r of the root or home directory; secrets sent off the machine; disk wipes; network or shutdown lines added to shell start-up files; an agent switching off or pausing the guard';
 export const ASKED = 'publishing a package or image; terraform, pulumi, kubectl and helm changes; curl | sh; sudo; history rewrites; dropping a database; edits to agent and shell configuration, and to Immiscible’s own records; the network after the session read a secret file';
 
 const sha = (buf) => createHash('sha256').update(buf).digest('hex');
@@ -176,7 +176,14 @@ export async function guard(ctx) {
   if (!['user', 'managed'].includes(scope)) throw usage('--scope must be user or managed');
   const dryRun = Boolean(flags['dry-run']);
   const stateFile = statePath(scope, env);
+  // Run from inside a coding agent's shell, a change that weakens the guard is refused here too, beside the hook.
+  if ((flags.off || flags.pause != null || flags.connect) && !dryRun) {
+    const inside = agentShell(env);
+    if (inside) throw new CliError(`${flags.off ? 'guard --off' : flags.pause != null ? 'guard --pause' : 'guard --connect'} was run from inside ${inside}`, { exit: EXIT.REFUSED, code: 'agent_shell', fix: 'Run it yourself, in your own terminal: an agent cannot switch off, pause or redirect the guard that checks it.' });
+  }
   if (flags.off) return guardOff(ctx, { scope, stateFile, dryRun });
+  if (flags.pause != null || flags.resume) return guardPause(ctx);
+  if (flags.status) return guardStatus(ctx);
 
   const connect = Boolean(flags.connect);
   const key = flags.key ?? (connect ? env.IMMISCIBLE_AGENT_KEY || env.ASSAY_AGENT_KEY || null : null);
@@ -314,6 +321,84 @@ export async function guard(ctx) {
   ui.out(`  ${c.dim('Turn it off, exactly as it was:')} npx immiscible guard --off`);
   if (ctx.token) ui.out(`  ${c.dim('Show your team this machine is guarded:')} npx immiscible scan --share`);
   ui.note('  Sessions already open pick up hooks when they next start.');
+  return EXIT.OK;
+}
+
+/**
+ * Whether this runs inside a coding agent's own shell, by the variables the agents set for the commands they
+ * run (best effort; the hook's own refusal is the first line): the agent's name, or null.
+ */
+export function agentShell(env = process.env) {
+  if (env.CLAUDECODE || env.CLAUDE_CODE_ENTRYPOINT) return 'Claude Code';
+  if (env.CODEX_SANDBOX || env.CODEX_SANDBOX_NETWORK_DISABLED) return 'Codex';
+  if (env.GEMINI_CLI) return 'Gemini CLI';
+  if (env.CURSOR_AGENT) return 'Cursor';
+  if (env.OPENCODE) return 'opencode';
+  return null;
+}
+
+/** The pause file: the person's own, or (--scope managed) the machine's, the only one a managed guard reads. */
+export function pausePath(env = process.env, scope = 'user', platform = process.platform) {
+  if (scope === 'managed') return platform === 'win32' ? path.join(env.ProgramData || 'C:\\ProgramData', 'immiscible', 'pause.json') : '/etc/immiscible/pause.json';
+  return path.join(homeOf(env), '.immiscible', 'pause.json');
+}
+
+/** --pause 15m: for a while, what the guard would ask about goes ahead, logged as paused; refusals stay. --resume ends it. */
+async function guardPause(ctx) {
+  const { ui, flags, env } = ctx;
+  const scope = flags.scope === 'managed' ? 'managed' : 'user';
+  const file = pausePath(env, scope);
+  if (flags.resume) {
+    const was = existsSync(file);
+    rmSync(file, { force: true });
+    if (ui.json) ui.writeJson({ ok: true, paused: false, wasPaused: was });
+    else ui.ok(was ? 'Guard is back on: everything is checked again.' : 'Guard was not paused.');
+    return EXIT.OK;
+  }
+  const m = /^(\d{1,3})(m|h)?$/.exec(String(flags.pause).trim());
+  const ms = m ? Number(m[1]) * (m[2] === 'h' ? 3_600_000 : 60_000) : NaN;
+  if (!Number.isFinite(ms) || ms <= 0 || ms > 2 * 3_600_000) throw usage('--pause takes a time up to 2h, such as 15m or 1h');
+  const at = new Date();
+  const until = new Date(at.getTime() + ms);
+  try {
+    mkdirSync(path.dirname(file), { recursive: true, mode: scope === 'managed' ? 0o755 : 0o700 });
+    writeFileSync(file, `${JSON.stringify({ at: at.toISOString(), until: until.toISOString() })}\n`, { mode: scope === 'managed' ? 0o644 : 0o600 });
+  } catch (err) {
+    throw writeError(err, file, scope);
+  }
+  if (ui.json) ui.writeJson({ ok: true, paused: true, until: until.toISOString() });
+  else {
+    ui.ok(`Guard paused until ${until.toTimeString().slice(0, 5)}: what it would ask about goes ahead, and is logged as paused.`);
+    ui.note('  Still refused: force pushes to protected branches, rm -rf of home, secrets leaving the machine. Still asked: changes to agent configuration and to the guard itself. npx immiscible guard --resume ends it now.');
+  }
+  return EXIT.OK;
+}
+
+/** --status: what is guarded here, how, the team's rules, and whether it is paused. */
+async function guardStatus(ctx) {
+  const { ui, env } = ctx;
+  const { c } = ui;
+  const g = guardState(env);
+  let pausedUntil = null;
+  // The same test the hooks apply (scripts/local-policy.mjs, lpPausedUntil): set now, at most two hours, not rewritten since.
+  try {
+    const f = pausePath(env, g.scope === 'managed' ? 'managed' : 'user');
+    const p = JSON.parse(readFileSync(f, 'utf8'));
+    const at = Date.parse(p.at);
+    const u = Date.parse(p.until);
+    const ok = Number.isFinite(at) && Number.isFinite(u) && at <= Date.now() + 60_000 && u - at <= 2 * 3_600_000 && statSync(f).mtimeMs <= at + 60_000;
+    if (ok && u > Date.now()) pausedUntil = new Date(u).toISOString();
+  } catch { /* not paused */ }
+  const team = readTeamRules(env) ?? readTeamRules(env, 'managed');
+  const found = detectAgents(env).filter((d) => d.found).map((d) => d.target);
+  const unguarded = found.filter((a) => !g.agents.includes(a));
+  const out = { ok: true, on: g.agents.length > 0, mode: g.mode, scope: g.scope, agents: g.agents, unguarded, team: team ? { version: team.version, workspace: team.workspace } : null, pausedUntil };
+  if (ui.json) { ui.writeJson(out); return EXIT.OK; }
+  if (!out.on) { ui.warn('Guard is not on here.'); ui.note('  npx immiscible guard'); return EXIT.OK; }
+  ui.ok(`Guard is on for ${g.agents.map((a) => LABELS[a] ?? a).join(', ')} ${c.dim(`(${g.mode === 'server' ? 'asking your workspace' : 'local rules'}, ${g.scope === 'managed' ? 'managed settings' : 'your own settings'})`)}`);
+  if (team) ui.out(`  ${c.dim('Team rules:')} version ${team.version}`);
+  if (pausedUntil) ui.warn(`Paused until ${new Date(pausedUntil).toTimeString().slice(0, 5)}. npx immiscible guard --resume`);
+  if (unguarded.length) ui.warn(`Not guarded: ${unguarded.map((a) => LABELS[a] ?? a).join(', ')}. npx immiscible guard`);
   return EXIT.OK;
 }
 
