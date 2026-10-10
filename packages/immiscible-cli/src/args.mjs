@@ -52,6 +52,10 @@ export const FLAGS = {
   status: { value: false },
   share: { value: false },
   team: { value: false },
+  base: { value: true },
+  comment: { value: false },
+  sign: { value: false },
+  check: { value: false },
   help: { value: false, short: 'h' },
   version: { value: false, short: 'v' },
 };

@@ -44,7 +44,7 @@ export const ticketOf = (...texts) => {
   return null;
 };
 
-function sessionCost(usage) {
+export function sessionCost(usage) {
   let micros = 0;
   let unpriced = false;
   for (const [model, u] of Object.entries(usage ?? {})) {

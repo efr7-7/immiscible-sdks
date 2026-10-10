@@ -26,7 +26,8 @@ export function logDir(home, env = {}) {
 
 /**
  * Every decision logged since `since` (ms), and whether each day's chain
- * holds: { decisions: [...], days: [{ file, entries, ok, brokenAt }] }.
+ * holds: { decisions: [...], days: [{ file, entries, ok, brokenAt, head }] },
+ * head being the hash of the day's last line.
  */
 export function readDecisions(dir, since = 0) {
   const out = { decisions: [], days: [] };
@@ -52,7 +53,7 @@ export function readDecisions(dir, since = 0) {
       const at = Date.parse(e.at);
       if (Number.isFinite(at) && at >= since && typeof e.client === 'string') out.decisions.push({ ...e, atMs: at });
     }
-    out.days.push({ file: name, entries: n, ok: brokenAt == null, brokenAt });
+    out.days.push({ file: name, entries: n, ok: brokenAt == null, brokenAt, head: prev });
   }
   return out;
 }

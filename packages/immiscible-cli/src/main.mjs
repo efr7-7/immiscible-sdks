@@ -18,6 +18,7 @@ import { mcp, MCP_CLIENTS } from './commands/mcp.mjs';
 import { check } from './commands/check.mjs';
 import { scanHistory } from './commands/scan.mjs';
 import { replay } from './commands/replay.mjs';
+import { attest } from './commands/attest.mjs';
 import { undo } from './commands/undo.mjs';
 import { cost } from './commands/cost.mjs';
 import { policy } from './commands/policy.mjs';
@@ -37,7 +38,7 @@ const about = async ({ ui }) => {
 /** install claude-code (the Claude Code fleet pack) or install codex|cursor|windsurf|gemini|droid|opencode|amp (the other agents' hooks and plugins). */
 const installAny = (ctx) => ((ctx.rest?.[0] ?? null) === 'claude-code' ? install(ctx) : installAgents(ctx));
 
-const COMMANDS = { about, try: tryIt, verify, login, logout, whoami, init, install: installAny, guard, doctor, status, token, mcp, check, scan: scanHistory, replay, undo, cost, policy, evidence };
+const COMMANDS = { about, try: tryIt, verify, login, logout, whoami, init, install: installAny, guard, doctor, status, token, mcp, check, scan: scanHistory, replay, undo, cost, attest, policy, evidence };
 
 const HELP = {
   main: `Immiscible: what your coding agents did, a guard in front of them in one command, and what any agent may spend, share and do.
@@ -51,8 +52,9 @@ Commands
   undo      Put files back to the checkpoint the guard took before an agent deleted or overwrote them
   replay    One coding-agent session as a timeline: every call, every decision, hash-chained
   cost      What coding agents cost per branch, pull request or ticket, across vendors. Runs locally
+  attest    What the agents did on this branch and under which rules, for its pull request: attest --comment
   try       See it work in under a minute, offline, with no account: allowed, held, denied, verified
-  verify    Check a signed receipt offline: immiscible verify receipt.jwt --keys keys.json
+  verify    Check a signed receipt or attestation offline: immiscible verify receipt.jwt --keys keys.json
   check     What the agents here can touch: MCP servers, Claude Code permissions, keys. Runs locally
   init      Govern the agent in this project: create it, write .env, install the Claude Code hook, test it
   install   A fail-closed hook for every session: install claude-code, codex, cursor, windsurf, gemini, droid, opencode or amp
@@ -229,6 +231,36 @@ Flags
   --prs                  With --by ticket, also read ticket ids from pull request titles (needs gh)
   --share                Also send each session's cost to your workspace (signed in)
   --team                 The team's cost from what everyone shared (owners, admins, analysts)`,
+
+  attest: `immiscible attest: what the coding agents did on this branch, for its pull request.
+
+Usage
+  immiscible attest [--base <ref>] [--comment] [--sign] [--out <file>] [--json]
+  immiscible attest --check [--strict]      in CI, on a pull request
+
+  Reads the agents' own history and the guard's decision log on this machine, keeps what
+  belongs to the branch checked out here (its sessions, and the decisions made in them
+  since the branch began), and writes it as an in-toto Statement about the branch head:
+  each agent's sessions, models and cost at list prices, what the guard allowed, asked
+  about and refused by rule, any agent that ran with no guard, the team rules in force,
+  and whether the decision log verifies. Counts only: never a command, path or prompt.
+
+Flags
+  --base <ref>    The branch it is measured from (default: origin's default branch, main or master)
+  --comment       Post it on the branch's pull request, or update the one posted before (needs gh)
+  --sign          Have your workspace sign it (signed in); immiscible verify checks the token offline
+  --out <file>    Also write the statement as JSON
+  --check         In CI: verify the pull request's signed attestation against your server's keys
+                  and its head commit. An agent that ran unguarded, or a decision log that did not
+                  verify, exits 11; a signature that does not hold exits 12
+  --strict        With --check, also exit 11 when there is none, it is unsigned, or it is for an
+                  earlier commit
+
+  A signature says which workspace received the statement and when, and that it has not
+  changed since. The counts are what this machine read.
+
+Exit codes: 0 ok, 2 not on a branch with a base, 3 --sign without a sign-in, 11 --check found an
+unguarded agent or a broken log, 12 the signature did not check out.`,
 
   replay: `immiscible replay: the flight recorder for your coding agents.
 

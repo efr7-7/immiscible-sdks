@@ -34,7 +34,7 @@ The CLI is at 0.2.0, released on 7 October 2026; the other packages are at 0.1.1
 
 None of the plugins or extensions is listed in a directory or marketplace yet; install them from this repository.
 
-**Coming in CLI 0.3.0 (in this repository, not yet on npm): your coding agents.** `immiscible scan` shows what Claude Code, Codex and Gemini CLI did on your machine this week, locally and with no account. `immiscible guard` puts one fail-closed check in front of Claude Code, Codex, Cursor, Windsurf, Gemini CLI, Factory Droid, opencode and Amp, with `undo` for what an agent deletes. `scan --ci` fails a build on any hook or MCP server a repository adds without review, and runs as a GitHub Action straight from this repository:
+**Coming in CLI 0.3.0 (in this repository, not yet on npm): your coding agents.** `immiscible scan` shows what Claude Code, Codex and Gemini CLI did on your machine this week, locally and with no account. `immiscible guard` puts one fail-closed check in front of Claude Code, Codex, Cursor, Windsurf, Gemini CLI, Factory Droid, opencode and Amp, with `undo` for what an agent deletes. `immiscible attest` puts what the agents did on a branch, under which rules, on its pull request as an in-toto statement your workspace can sign. `scan --ci` fails a build on any hook or MCP server a repository adds without review, and runs as a GitHub Action straight from this repository:
 
 ```yaml
 - uses: efr7-7/immiscible-sdks/packages/immiscible-cli@main

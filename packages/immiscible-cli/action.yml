@@ -1,5 +1,5 @@
 name: Immiscible agent configuration check
-description: Fails a pull request that adds a coding-agent hook, plugin or MCP server not on the repository's allow list (immiscible scan --ci).
+description: Fails a pull request that adds a coding-agent hook, plugin or MCP server not on the repository's allow list (immiscible scan --ci), and can check its signed attestation of what the agents did (immiscible attest --check).
 author: Eóin Forker
 branding:
   icon: shield
@@ -17,6 +17,10 @@ inputs:
     description: The repository directory to check.
     required: false
     default: '.'
+  attestation:
+    description: "off (the default), check (a signed attestation on the pull request is verified; an unguarded agent or a broken decision log fails the job) or require (as check, and the pull request must carry one for its head commit)."
+    required: false
+    default: 'off'
 runs:
   using: composite
   steps:
@@ -31,3 +35,12 @@ runs:
         # Always set, so a pull request's .env cannot choose where the token goes.
         IMMISCIBLE_URL: ${{ inputs.url || 'https://immiscible.ai' }}
       run: node "$GITHUB_ACTION_PATH/bin/immiscible.mjs" scan --ci
+    - if: inputs.attestation != 'off' && github.event.pull_request
+      shell: bash
+      working-directory: ${{ inputs.directory }}
+      env:
+        GH_TOKEN: ${{ github.token }}
+        IMMISCIBLE_TOKEN: ${{ inputs.token }}
+        IMMISCIBLE_URL: ${{ inputs.url || 'https://immiscible.ai' }}
+        STRICT: ${{ inputs.attestation == 'require' && '--strict' || '' }}
+      run: node "$GITHUB_ACTION_PATH/bin/immiscible.mjs" attest --check $STRICT

@@ -3,12 +3,14 @@
  * the SDK ships (src/vendor/verify.mjs). Needs no account and no agent key:
  * only the receipt and the issuer's public keys, from a file you hold
  * (--keys keys.json, nothing fetched) or from your server's
- * /.well-known/immiscible-keys.json.
+ * /.well-known/immiscible-keys.json. It checks a coding-agent attestation
+ * (immiscible attest --sign) the same way.
  */
 
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { verifyReceipt, decodeReceiptUnverified, JWKS_PATH } from '../vendor/verify.mjs';
+import { isAttestation, verifyAttestationAndReport } from './attest.mjs';
 import { CliError, EXIT, usage } from '../errors.mjs';
 
 const money = (minor, cur) => {
@@ -87,6 +89,22 @@ export async function verify(ctx) {
   const { ui, flags } = ctx;
   const token = await readReceipt(ctx.rest[0], { dir: ctx.dir, stdin: ctx.stdin ?? process.stdin });
   const { opts, from } = keysFrom(flags, { dir: ctx.dir, url: ctx.url });
+  if (isAttestation(token)) {
+    let jwks = opts.jwks ?? null;
+    if (!jwks) {
+      const keysUrl = opts.jwksUrl ?? `${String(opts.issuer).replace(/\/$/, '')}${JWKS_PATH}`;
+      try {
+        const res = await (ctx.fetchImpl ?? globalThis.fetch)(keysUrl, { headers: { accept: 'application/json' } });
+        if (!res.ok) throw new Error(`answered ${res.status}`);
+        jwks = await res.json();
+      } catch (err) {
+        throw new CliError(`could not read the keys from ${from}: ${err?.message ?? err}`, { exit: EXIT.NETWORK, code: 'keys_unavailable', fix: 'Pass the key set as a file: --keys keys.json' });
+      }
+    }
+    const r = await verifyAttestationAndReport({ ui, token, jwks, from, issuer: opts.issuer ?? null });
+    if (ui.json) ui.writeJson({ ok: r.valid, ...r });
+    return r.valid ? EXIT.OK : EXIT.INVALID;
+  }
   const result = await verifyAndReport({ ui, token, opts, from, fetchImpl: ctx.fetchImpl });
   if (ui.json) ui.writeJson({ ok: result.valid, ...result });
   return result.valid ? EXIT.OK : EXIT.INVALID;
